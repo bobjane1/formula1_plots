@@ -23,6 +23,9 @@
     .buttons { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
     .buttons button { background:#11141a; color:var(--fg); border:1px solid #2a2f3a; padding:6px 8px; border-radius:8px; cursor:pointer; }
     .hint { color:var(--muted); font-size:12px; margin-top:6px; }
+    .credit {position: fixed; left: 12px; bottom: 10px; z-index: 9999; font-size: 12px; color: var(--muted); text-decoration: none; opacity: 0.9;}
+    .credit:hover { text-decoration: underline; opacity: 1; }
+</style>
   </style>
 </head>
 <body>
@@ -149,84 +152,99 @@
 
     // ---------------- ECharts option builders ----------------
     function buildOption(parsed, titleText, colorLookup) {
-      const { rows, lapCount, minY, maxY } = parsed;
-      const rightX = lapCount + 1.2;
+  const { rows, lapCount, minY, maxY } = parsed;
+  const rightX = lapCount + 1.2;
+  const DNF_LEADER = '#8a909c'; // neutral leader color for DNFs
 
-      const series = [];
-      hiddenLegend.selected = {};
+  const series = [];
+  hiddenLegend.selected = {};
 
-      for (const { label, values } of rows) {
-        const data = [];
-        for (let i = 0; i < values.length; i++) data.push([i + 1, values[i]]);
-        if (values.length) data.push([rightX, values[values.length - 1]]);
-        hiddenLegend.selected[label] = true;
+  for (const { label, values } of rows) {
+    if (!values.length) continue;
 
-        const col = colorLookup ? colorLookup(label) : null;
+    const col    = colorLookup ? colorLookup(label) : null;
+    const lastX  = values.length;
+    const lastY  = values[lastX - 1];
+    const isFull = lastX === lapCount;
 
-        series.push({
-          name: label,
-          type: 'line',
-          data,
-          step: 'end',
-          showSymbol: false,
-          color: col || undefined,                    // series color
-          lineStyle: { width: 1.8, opacity: 0.95, color: col || undefined },
-          emphasis: { focus: 'series', blurScope: 'global', lineStyle: { width: 3.2 } },
-          blur: { lineStyle: { opacity: 0.5 } },     // dim other series on hover
-          endLabel: { show: true, formatter: '{a}', position: 'right', offset: [6,0], color: col || 'inherit' },
-          progressive: 2000,
-          animation: false,
-          clip: true
-        });
-      }
+    hiddenLegend.selected[label] = true;
 
-      lastYFallback = {
-        min: Math.min(-100, Math.floor(minY - 2)),
-        max: Math.max(  1, Math.ceil (maxY + 1))
-      };
+    // 1) Main stepped line (actual laps only)
+    const mainData = [];
+    for (let i = 0; i < values.length; i++) mainData.push([i + 1, values[i]]);
+    series.push({
+      name: label,
+      type: 'line',
+      data: mainData,
+      step: 'end',
+      showSymbol: false,
+      color: col || undefined,
+      lineStyle: { width: 1.8, opacity: 0.95, color: col || undefined },
+      emphasis: { focus: 'series', blurScope: 'global', lineStyle: { width: 3.2 } },
+      blur:     { lineStyle: { opacity: 0.15 } },
+      endLabel: { show: false },
+      animation: false,
+      clip: true,
+      // Put a small dot at the retirement lap for DNFs
+      ...(isFull ? {} : {
+        markPoint: {
+          symbol: 'circle',
+          symbolSize: 6,
+          itemStyle: { color: col || '#ddd', borderColor: '#fff', borderWidth: 1 },
+          data: [{ coord: [lastX, lastY] }],
+          silent: true
+        }
+      })
+    });
 
-      return {
-        backgroundColor: 'transparent',
-        title: { text: titleText || 'Gap to P1 by Lap', left: 'center', top: 6, textStyle: { color: '#e8e8e8', fontSize: 16, fontWeight: 600 } },
-        grid: { left: 56, right: 130, top: 42, bottom: 40 },
-        tooltip: { show: false },
-        legend: hiddenLegend,
-        xAxis: {
-          type: 'value',
-          min: 1,
-          max: rightX + 0.1,
-          name: 'Lap',
-          nameLocation: 'middle',
-          nameGap: 28,
-          axisLabel: { color: '#c8c8c8', formatter: v => Number.isInteger(v) ? v : '' },
-          splitLine: { lineStyle: { color: '#2a2f3a' } },
-          axisLine: { lineStyle: { color: '#6b6f7b' } },
-        },
-        yAxis: {
-          type: 'value',
-          min: lastYFallback.min,
-          max: lastYFallback.max,
-          name: 'Gap to P1 (s)',
-          nameLocation: 'middle',
-          nameGap: 40,
-          axisLabel: { color: '#c8c8c8' },
-          splitLine: { lineStyle: { color: '#2a2f3a' } },
-          axisLine: { lineStyle: { color: '#6b6f7b' } },
-        },
-        series: [
-          ...series,
-          { // baseline y=0
-            name: '__baseline__',
-            type: 'line',
-            data: [[1, 0], [lapCount + 1.3, 0]],
-            showSymbol: false,
-            lineStyle: { width: 1, opacity: 0.35, color: '#aaaaaa' },
-            silent: true,
-            z: -1
-          }
-        ]
-      };
-    }
+    // 2) Right-side leader to the label (neutral & clearly not a result line for DNFs)
+    series.push({
+      name: label,                 // same name so legend/checkbox toggles both
+      type: 'line',
+      data: [[lastX, lastY], [rightX, lastY]],
+      showSymbol: false,
+      silent: true,                // don't capture hover
+      step: false,
+      lineStyle: isFull
+        ? { color: col || undefined, width: 1.0, opacity: 0.6 }     // finishers: faint colored leader
+        : { color: DNF_LEADER,        width: 0.9, opacity: 0.9 },   // DNFs: neutral leader
+      endLabel: {
+        show: true,
+        formatter: isFull ? '{a}' : '{a}  (DNF)',
+        position: 'right',
+        offset: [6, 0],
+        color: isFull ? (col || 'inherit') : DNF_LEADER,
+        fontWeight: isFull ? 'normal' : '600'
+      },
+      z: 2
+    });
+  }
+
+  lastYFallback = {
+    min: Math.min(-100, Math.floor(minY - 2)),
+    max: Math.max(  1, Math.ceil (maxY + 1))
+  };
+
+  return {
+    backgroundColor: 'transparent',
+    title: { text: titleText || 'Gap to P1 by Lap', left: 'center', top: 6, textStyle: { color: '#e8e8e8', fontSize: 16, fontWeight: 600 } },
+    grid:  { left: 56, right: 130, top: 42, bottom: 40 },
+    tooltip: { show: false },
+    legend: hiddenLegend,
+    xAxis: { type: 'value', min: 1, max: rightX + 0.1, name: 'Lap', nameLocation: 'middle', nameGap: 28,
+             axisLabel: { color: '#c8c8c8', formatter: v => Number.isInteger(v) ? v : '' },
+             splitLine: { lineStyle: { color: '#2a2f3a' } }, axisLine: { lineStyle: { color: '#6b6f7b' } } },
+    yAxis: { type: 'value', min: lastYFallback.min, max: lastYFallback.max, name: 'Gap to P1 (s)',
+             nameLocation: 'middle', nameGap: 40, axisLabel: { color: '#c8c8c8' },
+             splitLine: { lineStyle: { color: '#2a2f3a' } }, axisLine: { lineStyle: { color: '#6b6f7b' } } },
+    series: [
+      ...series,
+      { name: '__baseline__', type: 'line', data: [[1, 0], [lapCount + 1.3, 0]],
+        showSymbol: false, lineStyle: { width: 1, opacity: 0.35, color: '#aaaaaa' }, silent: true, z: -1 }
+    ]
+  };
+}
+
 
     // Recompute y-axis to visible series
     function updateYAxisToVisible() {
@@ -448,5 +466,8 @@
       await loadManifest();        // loads driver_lines_filenames.csv and kicks off first plot
     });
   </script>
+  <a class="credit" href="https://docs.fastf1.dev/index.html" target="_blank" rel="noopener">
+    Source Data: FastF1
+  </a>
 </body>
 </html>
