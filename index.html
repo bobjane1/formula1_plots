@@ -446,7 +446,7 @@
         return { name: r.label, isFull, laps, lastGap };
       });
       const finishers = entries.filter(e => e.isFull)
-        .sort((a, b) => (a.lastGap - b.lastGap) || a.name.localeCompare(b.name));
+        .sort((a, b) => (b.lastGap - a.lastGap) || a.name.localeCompare(b.name));
       const dnfs = entries.filter(e => !e.isFull)
         .sort((a, b) => (b.laps - a.laps) || (a.lastGap - b.lastGap) || a.name.localeCompare(b.name));
       return [...finishers, ...dnfs].map(e => e.name);
