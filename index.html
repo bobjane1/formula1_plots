@@ -74,6 +74,11 @@
     // NEW: current selection for tooltip context
     let currentSelection = { year: null, round: null, sessionType: null };
 
+    // NEW: keep original unmodified series values by driver for dynamic re-baselining
+    let originalValues = new Map();          // Map<driver, number[]> raw values per lap
+    let originalLapCount = 0;                // total race laps
+    let rightXGlobal = 0;                    // x for extended last point
+
     // byYear: Map<year, Map<round_no, {race, circuit, sessions: [{type, filename}]>>>
     const byYear = new Map();
 
@@ -235,7 +240,7 @@
 
       return {
         backgroundColor: 'transparent',
-        title: { text: titleText || 'Gap to P1 by Lap', left: 'center', top: 6, textStyle: { color: '#e8e8e8', fontSize: 16, fontWeight: 600 } },
+        title: { text: titleText || 'Gap by Lap', left: 'center', top: 6, textStyle: { color: '#e8e8e8', fontSize: 16, fontWeight: 600 } },
         grid: { left: 56, right: 130, top: 42, bottom: 40 },
 
         // UPDATED tooltip with driver headshot card
@@ -301,7 +306,7 @@
           type: 'value',
           min: lastYFallback.min,
           max: lastYFallback.max,
-          name: 'Gap to P1 (s)',
+          name: 'Gap to Driver in Front (sec)',
           nameLocation: 'middle',
           nameGap: 40,
           axisLabel: { color: '#c8c8c8' },
@@ -347,7 +352,45 @@
       const yMax = Math.max(max + pad, 0.5);
       chart.setOption({ yAxis: { min: Math.floor(yMin), max: Math.ceil(yMax) } });
     }
-    chart.on('legendselectchanged', updateYAxisToVisible);
+
+    // NEW: recompute displayed series so each lap is relative to the max value among SELECTED drivers
+    function recomputeSeriesRelativeToSelection() {
+      if (!originalLapCount) return; // not ready
+      const opt = chart.getOption();
+      const legendSel = (opt.legend && opt.legend[0] && opt.legend[0].selected) || {};
+      const selected = currentSeriesNames.filter(n => legendSel[n] !== false);
+
+      // For each lap i, compute max over selected drivers that have that lap
+      const lapMax = new Array(originalLapCount);
+      for (let i = 0; i < originalLapCount; i++) {
+        let any = false, m = -Infinity;
+        for (const name of selected) {
+          const arr = originalValues.get(name);
+          if (arr && arr.length > i) { any = true; if (arr[i] > m) m = arr[i]; }
+        }
+        lapMax[i] = any ? m : 0; // if no selected drivers have this lap, subtract 0
+      }
+
+      // Build series updates using ORIGINAL values, without mutating them
+      const updates = [];
+      for (const name of currentSeriesNames) {
+        const arr = originalValues.get(name) || [];
+        const adjusted = arr.map((v, i) => v - lapMax[i]);
+        const isFull = arr.length === originalLapCount;
+        const data = adjusted.map((y, i) => [i + 1, y]);
+        if (isFull && adjusted.length) {
+          data.push({ value: [rightXGlobal, adjusted[adjusted.length - 1]], tooltip: { show: false }, emphasis: { disabled: true } });
+        }
+        updates.push({ name, data });
+      }
+      chart.setOption({ series: updates.map(u => ({ name: u.name, data: u.data })) });
+    }
+
+    // doesn't get called because the legend is hidden, but kept for reference
+    // chart.on('legendselectchanged', () => {
+    //   recomputeSeriesRelativeToSelection();
+    //   updateYAxisToVisible();
+    // });
 
     // ---------------- Sidebar: toggles ----------------
     function buildDriverList(names) {
@@ -380,6 +423,8 @@
 
         cb.addEventListener('change', () => {
           chart.dispatchAction({ type: cb.checked ? 'legendSelect' : 'legendUnSelect', name });
+          // recompute + axis handled by legendselectchanged listener
+          recomputeSeriesRelativeToSelection();
           updateYAxisToVisible();
         });
         row.appendChild(cb);
@@ -393,11 +438,15 @@
     }
     btnAll.addEventListener('click', () => {
       for (const name of currentSeriesNames) chart.dispatchAction({ type: 'legendSelect', name });
-      updateYAxisToVisible(); syncCheckboxes(true);
+      recomputeSeriesRelativeToSelection();
+      updateYAxisToVisible();
+      syncCheckboxes(true);
     });
     btnNone.addEventListener('click', () => {
       for (const name of currentSeriesNames) chart.dispatchAction({ type: 'legendUnSelect', name });
-      updateYAxisToVisible(); syncCheckboxes(false);
+      recomputeSeriesRelativeToSelection();
+      updateYAxisToVisible();
+      syncCheckboxes(false);
     });
 
     // ---------------- Manifest + 3-level selection ----------------
@@ -551,6 +600,12 @@
       });
       const parsed = parseDriverLines(csv);
 
+      // Save ORIGINAL values for dynamic re-baselining later
+      originalValues.clear();
+      for (const row of parsed.rows) originalValues.set(row.label, row.values.slice());
+      originalLapCount = parsed.lapCount;
+      rightXGlobal = parsed.lapCount + 1.2;
+
       // Order driver checkboxes as requested
       const orderedNames = computeDriverOrder(parsed);
 
@@ -567,8 +622,9 @@
         chart.dispatchAction({ type: topSet.has(name) ? 'legendSelect' : 'legendUnSelect', name });
       }
 
-      // Build sidebar to reflect the selection state and fit axes to visible series
+      // Build sidebar to reflect the selection state, rebase to selection, and fit axes
       buildDriverList(currentSeriesNames);
+      recomputeSeriesRelativeToSelection();
       updateYAxisToVisible();
     }
 
