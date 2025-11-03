@@ -283,18 +283,31 @@
     function buildDriverList(names) {
       driverList.innerHTML = '';
       const sel = ((chart.getOption().legend || [])[0] || {}).selected || {};
+      const year = seasonSel.value;
+      const round = gpSel.value;
       for (const name of names) {
         const row = document.createElement('label');
         row.className = 'driver';
         const cb = document.createElement('input');
         cb.type = 'checkbox';
         cb.checked = sel[name] !== false;
+
+        // Create a colored name span using per-driver color for the current year/round
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = ' ' + name;
+        const col = getColorFor(year, round, name);
+        if (col) {
+          nameSpan.style.color = col;            // color the driver name
+          try { cb.style.accentColor = col; }    // modern browsers: tint the checkbox
+          catch (e) { /* noop if unsupported */ }
+        }
+
         cb.addEventListener('change', () => {
           chart.dispatchAction({ type: cb.checked ? 'legendSelect' : 'legendUnSelect', name });
           updateYAxisToVisible();
         });
         row.appendChild(cb);
-        row.appendChild(document.createTextNode(' ' + name));
+        row.appendChild(nameSpan);
         driverList.appendChild(row);
       }
     }
@@ -463,7 +476,6 @@
 
       // Build a per-driver color resolver for the active year/round
       const colorLookup = (driver) => getColorFor(year, round, driver);
-
       const option = buildOption(parsed, title, colorLookup);
       chart.setOption(option, true);
       currentSeriesNames = orderedNames;
