@@ -23,6 +23,8 @@
     .buttons { display:flex; gap:8px; flex-wrap:wrap; margin-top:6px; }
     .buttons button { background:#11141a; color:var(--fg); border:1px solid #2a2f3a; padding:6px 8px; border-radius:8px; cursor:pointer; }
     .hint { color:var(--muted); font-size:12px; margin-top:6px; }
+    .credit { position:fixed; left:12px; bottom:10px; z-index:9999; font-size:12px; color:var(--muted); text-decoration:none; opacity:0.9; }
+    .credit:hover { text-decoration:underline; opacity:1; }
   </style>
 </head>
 <body>
@@ -580,5 +582,6 @@
       await loadManifest();        // loads driver_lines_filenames.csv and kicks off first plot
     });
   </script>
+  <a class="credit" href="https://docs.fastf1.dev/index.html" target="_blank" rel="noopener">Source Data: FastF1</a>
 </body>
 </html>
