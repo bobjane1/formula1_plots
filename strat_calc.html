@@ -1003,7 +1003,7 @@
 
       strategyChart.setOption(option, true);
 
-      let html = '<h3>Optimal pit stops</h3>';
+      let html = '<h3>Predicted pit stops</h3>';
       combinedResults.forEach((r, idx) => {
         const delta = deltas[idx];
         const label = r.isBaseline ? `${r.label} (optimal)` : r.label;
