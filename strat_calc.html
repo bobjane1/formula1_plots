@@ -24,7 +24,7 @@
 
     body {
       margin: 0;
-      padding: 16px 20px 20px;
+      padding: 10px 20px 16px;
       background: radial-gradient(circle at top, #111827 0, #050608 40%, #000 100%);
       color: var(--text);
       font-family: var(--font);
@@ -42,6 +42,13 @@
       letter-spacing: 0.03em;
     }
 
+    h4 {
+      margin: 0 0 6px;
+      font-weight: 500;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+
     .subtitle {
       margin-bottom: 8px;
       color: var(--muted);
@@ -54,7 +61,7 @@
       display: flex;
       gap: 16px;
       align-items: flex-start;
-      height: calc(100vh - 70px); /* below header+subtitle */
+      height: calc(100vh - 40px); /* tighter under header */
     }
 
     .left-pane,
@@ -96,7 +103,7 @@
       background: radial-gradient(circle at top left, rgba(79,209,197,0.03), transparent 65%) var(--bg-elevated);
       border: 1px solid var(--border-subtle);
       border-radius: var(--radius);
-      padding: 12px 14px 14px;
+      padding: 10px 12px 12px;
       margin-bottom: 10px;
       box-shadow: var(--shadow);
     }
@@ -105,6 +112,19 @@
       display: flex;
       align-items: baseline;
       gap: 10px;
+      margin-bottom: 0;
+    }
+
+    .inputs-actions {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 6px;
+    }
+
+    .inputs-actions #runBtn {
+      margin-top: 0;
     }
 
     .small-note {
@@ -219,31 +239,21 @@
       transform: translateY(-1px);
     }
 
-    #runBtn {
-      margin-top: 8px;
+    #runBtn,
+    #runBtn2 {
       padding: 7px 18px;
       font-size: 0.9rem;
       background: linear-gradient(to right, var(--accent), #63b3ed);
       color: #050608;
       border: none;
       box-shadow: 0 8px 18px rgba(0, 0, 0, 0.7);
-    }
-
-    #runBtn:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 11px 26px rgba(0, 0, 0, 0.85);
     }
 
     #runBtn2 {
       margin-top: 8px;
-      padding: 7px 18px;
-      font-size: 0.9rem;
-      background: linear-gradient(to right, var(--accent), #63b3ed);
-      color: #050608;
-      border: none;
-      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.7);
     }
 
+    #runBtn:hover,
     #runBtn2:hover {
       transform: translateY(-1px);
       box-shadow: 0 11px 26px rgba(0, 0, 0, 0.85);
@@ -289,39 +299,106 @@
       margin-top: 5px;
       min-height: 1em;
     }
+
+    /* New layout for strategies + race params */
+
+    .strategies-row {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-top: 4px;
+      margin-bottom: 10px;
+    }
+
+    .strategies-col h3,
+    .race-params-col h3 {
+      margin: 0 0 4px;
+      font-size: 0.9rem;
+    }
+
+    .strategy-inputs {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      max-width: 180px; /* keeps them narrow */
+    }
+
+    .strategy-inputs .field-input {
+      width: 100%;
+    }
+
+    .race-params-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(90px, 1fr));
+      gap: 6px 8px;
+    }
+
+    .race-params-col .field-label {
+      font-size: 0.72rem;
+    }
+
+    @media (max-width: 720px) {
+      .strategies-row {
+        flex-direction: column;
+      }
+      .strategy-inputs {
+        max-width: 100%;
+      }
+      .race-params-grid {
+        grid-template-columns: repeat(2, minmax(110px, 1fr));
+      }
+    }
   </style>
 </head>
 <body>
-  <h4>Strategy Optimizer - Calculates the optimal strategy taking into account tyre degradation, pit stop time loss, and safety car probabilities.</h4>
+  <h4>Strategy Optimizer – Calculates the optimal strategy taking into account tyre degradation, pit stop time loss, and safety car probabilities.</h4>
   <div class="layout">
     <!-- LEFT: INPUTS -->
     <div class="left-pane">
       <div class="section">
-        <button id="runBtn" type="button">Run</button>
         <div id="errorBox" class="error"></div>
-        <div class="section-header">
-          <h2>Inputs</h2>
-          <div class="small-note">Adjust parameters, then Run to recompute.</div>
+
+        <div class="inputs-actions">
+          <div class="section-header">
+            <h2>Inputs</h2>
+            <div class="small-note">Adjust parameters, then Run to recompute.</div>
+          </div>
+          <button id="runBtn" type="button">Run</button>
         </div>
 
-        <div class="inputs-grid">
-          <div>
-            <span class="field-label">Num laps</span>
-            <input type="number" id="numLaps" class="field-input" min="1" />
+        <div class="strategies-row">
+          <div class="strategies-col">
+            <h3>Strategies Of Interest</h3>
+            <div id="strategyInputs" class="strategy-inputs">
+              <input type="text" class="field-input strategyInput" placeholder="auto from model" />
+              <input type="text" class="field-input strategyInput" placeholder="auto from model" />
+              <input type="text" class="field-input strategyInput" placeholder="auto from model" />
+              <input type="text" class="field-input strategyInput" />
+              <input type="text" class="field-input strategyInput" />
+            </div>
           </div>
-          <div>
-            <span class="field-label">Pit loss (s)</span>
-            <input type="number" id="pitLoss" class="field-input" step="0.1" />
+
+          <div class="race-params-col">
+            <h3>Race Parameters</h3>
+            <div class="race-params-grid">
+              <div>
+                <span class="field-label">Num laps</span>
+                <input type="number" id="numLaps" class="field-input" min="1" />
+              </div>
+              <div>
+                <span class="field-label">Pit loss (s)</span>
+                <input type="number" id="pitLoss" class="field-input" step="0.1" />
+              </div>
+              <div>
+                <span class="field-label">SC length (laps)</span>
+                <input type="number" id="scLength" class="field-input" min="1" />
+              </div>
+              <div>
+                <span class="field-label">Fuel Effect (s/lap)</span>
+                <input type="number" id="fuelEffect" class="field-input" step="0.001" />
+              </div>
+            </div>
           </div>
-          <div>
-            <span class="field-label">SC length (laps)</span>
-            <input type="number" id="scLength" class="field-input" min="1" />
-          </div>
-          <div>
-            <span class="field-label">Fuel Effect (s/lap)</span>
-            <input type="number" id="fuelEffect" class="field-input" step="0.001" />
-          </div>
-          
         </div>
 
         <h3>Compounds</h3>
@@ -368,19 +445,6 @@
           <tbody></tbody>
         </table>
         <button type="button" id="addRangeBtn" class="btn-small">+ Add range</button>
-
-        <h3>Strategies Of Interest</h3>
-        <div id="strategyInputs" class="inputs-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
-          <div>
-            
-            <input type="text" class="field-input strategyInput" placeholder="auto from model" />
-            <input type="text" class="field-input strategyInput" placeholder="auto from model" />
-            <input type="text" class="field-input strategyInput" placeholder="auto from model" />
-            <input type="text" class="field-input strategyInput" />
-            <input type="text" class="field-input strategyInput" />
-          </div>
-        </div>
-        <button id="runBtn2" type="button">Run</button>
       </div>
     </div>
 
@@ -400,7 +464,6 @@
           <h3>Lap times by strategy. Ignores pit stops and safety cars.</h3>
         </div>
         <div id="lapTimeChart" class="chart" style="height:260px; margin-top:4px;"></div>
-
       </div>
     </div>
   </div>
@@ -951,114 +1014,108 @@
     }
 
     function updateLapTimeChart(combinedResults, compounds, numLaps, fuelEffect) {
-        const dom = document.getElementById("lapTimeChart");
-        if (!dom) return;
+      const dom = document.getElementById("lapTimeChart");
+      if (!dom) return;
 
-        if (!lapTimeChart) {
-            lapTimeChart = echarts.init(dom);
-        }
+      if (!lapTimeChart) {
+        lapTimeChart = echarts.init(dom);
+      }
 
-        if (!combinedResults || combinedResults.length === 0 || !Number.isFinite(numLaps)) {
-            lapTimeChart.clear();
-            lapTimeChart.setOption({
-            backgroundColor: "transparent",
-            title: {
-                text: "No-SC lap time profiles",
-                left: 10,
-                top: 8,
-                textStyle: { color: "#718096", fontSize: 12, fontWeight: 400 }
-            }
-            });
-            return;
-        }
-
-        // Different styles per strategy
-        const lineTypes = ["solid", "dashed", "dotted", "solid", "dashed"];
-        const symbols = ["circle", "triangle", "rect", "diamond", "pin"];
-
-        const series = [];
-
-        combinedResults.forEach((r, i) => {           
-            const data = [];
-            // Build [lap, lapTime, compIdx] assuming no SC
-            r.stints.forEach(([ci, sLap, eLap]) => {
-            for (let lap = sLap; lap <= eLap; lap++) {
-                const age = lap - sLap;
-                const lt = lapTime(ci, age, lap, compounds, fuelEffect);
-                data.push({
-                    value: [lap, lt],
-                    compIdx: ci,
-                });
-            }
-            });
-            data.sort((a, b) => a[0] - b[0]);
-
-            const isBaseline = r.isBaseline;
-            series.push({
-                name: isBaseline ? `${r.label} (optimal)` : r.label,
-                type: "line",
-                data,
-                showSymbol: false,
-                symbol: "circle",
-                symbolSize: isBaseline ? 3 : 2,
-                lineStyle: {
-                    width: isBaseline ? 2.2 : 1.7,
-                    type: isBaseline ? "solid" : "dashed"
-                },
-                emphasis: { focus: "series" }
-            });
+      if (!combinedResults || combinedResults.length === 0 || !Number.isFinite(numLaps)) {
+        lapTimeChart.clear();
+        lapTimeChart.setOption({
+          backgroundColor: "transparent",
+          title: {
+            text: "No-SC lap time profiles",
+            left: 10,
+            top: 8,
+            textStyle: { color: "#718096", fontSize: 12, fontWeight: 400 }
+          }
         });
+        return;
+      }
 
-        const option = {
-            backgroundColor: "transparent",
-            textStyle: { color: "#e2e8f0" },
-            tooltip: {
-                trigger: "axis",
-                axisPointer: { type: "line" },
-                formatter: (params) => {
-                    if (!params || !params.length) return "";
-                    const lap = params[0].value[0];
-                    let s = `Lap ${lap}<br/>`;
-                    params.forEach(p => {
-                    const t = p.value[1];
-                    const ci = p.data.compIdx;
-                    const comp = compounds[ci].type || ["S","M","H"][ci] || "";
-                    s += `${p.marker}${p.seriesName}: ${t.toFixed(3)} s (${comp})<br/>`;
-                    });
-                    return s;
-                }
-            },
-            legend: {
-                top: 22,
-                right: 10,
-                textStyle: { color: "#cbd5f5", fontSize: 8 }
-            },
-            grid: { left: 55, right: 18, top: 42, bottom: 40 },
-            xAxis: {
-                type: "value",
-                name: "Lap",
-                min: 1,
-                max: numLaps,
-                axisLine: { lineStyle: { color: "#4a5568" } },
-                axisLabel: { color: "#cbd5f5", fontSize: 9 },
-                splitLine: { show: false }
-            },
-            yAxis: {
-                type: "value",
-                name: "Lap time (s)",
-                scale: true,
-                nameTextStyle: { color: "#a0aec0", fontSize: 10, padding: [0, 0, 4, 0] },
-                axisLine: { lineStyle: { color: "#4a5568" } },
-                axisLabel: { color: "#cbd5f5", fontSize: 9 },
-                splitLine: { lineStyle: { color: "#1a202c" } }
-            },
-            series
-        };
+      const series = [];
 
-        lapTimeChart.setOption(option, true);
+      combinedResults.forEach((r) => {
+        const data = [];
+        r.stints.forEach(([ci, sLap, eLap]) => {
+          for (let lap = sLap; lap <= eLap; lap++) {
+            const age = lap - sLap;
+            const lt = lapTime(ci, age, lap, compounds, fuelEffect);
+            data.push({
+              value: [lap, lt],
+              compIdx: ci
+            });
+          }
+        });
+        data.sort((a, b) => a[0] - b[0]);
+
+        const isBaseline = r.isBaseline;
+        series.push({
+          name: isBaseline ? `${r.label} (optimal)` : r.label,
+          type: "line",
+          data,
+          showSymbol: false,
+          symbol: "circle",
+          symbolSize: isBaseline ? 3 : 2,
+          lineStyle: {
+            width: isBaseline ? 2.2 : 1.7,
+            type: isBaseline ? "solid" : "dashed"
+          },
+          emphasis: { focus: "series" }
+        });
+      });
+
+      const option = {
+        backgroundColor: "transparent",
+        textStyle: { color: "#e2e8f0" },
+        tooltip: {
+          trigger: "axis",
+          axisPointer: { type: "line" },
+          formatter: (params) => {
+            if (!params || !params.length) return "";
+            const lap = params[0].value[0];
+            let s = `Lap ${lap}<br/>`;
+            params.forEach(p => {
+              const t = p.value[1];
+              const ci = p.data.compIdx;
+              const comp = compounds[ci].type || ["S","M","H"][ci] || "";
+              s += `${p.marker}${p.seriesName}: ${t.toFixed(3)} s (${comp})<br/>`;
+            });
+            return s;
+          }
+        },
+        legend: {
+          top: 22,
+          right: 10,
+          textStyle: { color: "#cbd5f5", fontSize: 8 }
+        },
+        grid: { left: 55, right: 18, top: 42, bottom: 40 },
+        xAxis: {
+          type: "value",
+          name: "Lap",
+          min: 1,
+          max: numLaps,
+          axisLine: { lineStyle: { color: "#4a5568" } },
+          axisLabel: { color: "#cbd5f5", fontSize: 9 },
+          splitLine: { show: false }
+        },
+        yAxis: {
+          type: "value",
+          name: "Lap time (s)",
+          scale: true,
+          nameTextStyle: { color: "#a0aec0", fontSize: 10, padding: [0, 0, 4, 0] },
+          axisLine: { lineStyle: { color: "#4a5568" } },
+          axisLabel: { color: "#cbd5f5", fontSize: 9 },
+          splitLine: { lineStyle: { color: "#1a202c" } }
+        },
+        series
+      };
+
+      lapTimeChart.setOption(option, true);
     }
 
-    
     /* Run + seeding */
 
     function runSimulation() {
@@ -1227,14 +1284,10 @@
       document.getElementById("scLength").value = 5;
       document.getElementById("pitLoss").value = 21.8;
       document.getElementById("paceS").value = 75.0;
-      document.getElementById("degS").value = 0.071;
-      document.getElementById("paceM").value = 75.5;
-      document.getElementById("degM").value = 0.040;
-      document.getElementById("paceH").value = 76.5;
-      document.getElementById("degH").value = 0.015;
-
       document.getElementById("degS").value = 0.08;
+      document.getElementById("paceM").value = 75.5;
       document.getElementById("degM").value = 0.06;
+      document.getElementById("paceH").value = 76.5;
       document.getElementById("degH").value = 0.02;
 
       const tbody = document.querySelector("#scProbTable tbody");
@@ -1255,7 +1308,6 @@
       });
 
       document.getElementById("runBtn").addEventListener("click", runSimulation);
-      document.getElementById("runBtn2").addEventListener("click", runSimulation);
 
       seedPatternsFromFree();
       runSimulation();
