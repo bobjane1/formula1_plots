@@ -665,7 +665,7 @@
           <button id="fuelAdjustToggle" class="toggle-button active">Fuel Adjusted</button>
           <span style="font-size: 10px; color: var(--muted-color);" id="selectedStintCount">No stints selected</span>
         </div>
-        <canvas id="lapTimeChart"></canvas>
+        <div id="lapTimeChart" style="width: 100%; height: 400px;"></div>
       </div>
     </div>
 
@@ -745,6 +745,9 @@
   <!-- Chart.js for scatter plot -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 
+  <!-- ECharts for lap time chart -->
+  <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+
   <script>
     const circuitSelect = document.getElementById("circuitSelect");
     const eventsList = document.getElementById("eventsList");
@@ -752,7 +755,7 @@
     const groupsTableContainer = document.getElementById("groupsTableContainer");
     const chartsWrapper = document.getElementById("chartsWrapper");
     const scatterChartCanvas = document.getElementById("scatterChart");
-    const lapTimeChartCanvas = document.getElementById("lapTimeChart");
+    const lapTimeChartContainer = document.getElementById("lapTimeChart");
     const equationsSection = document.getElementById("equationsSection");
     const equationsGrid = document.getElementById("equationsGrid");
     const fuelAdjustToggle = document.getElementById("fuelAdjustToggle");
@@ -762,12 +765,19 @@
     let eventsByKey = new Map(); // key -> {year, round_no, meeting_name, circuit_name}
     let tyreChoices = new Map(); // key (year||round_no) -> {hard, medium, soft}
     let scatterChart = null; // Chart.js instance
-    let lapTimeChart = null; // Chart.js instance for lap times
+    let lapTimeChart = null; // ECharts instance for lap times
     let selectedStints = new Set(); // Set of selected stint keys
     let activeDropdown = null; // Active header dropdown
     let activeDropdownColumn = null; // Track which column's dropdown is open
 
     init();
+
+    // Handle window resize for ECharts
+    window.addEventListener('resize', () => {
+      if (lapTimeChart) {
+        lapTimeChart.resize();
+      }
+    });
 
     function init() {
       // Load tyre_choices.csv first
@@ -1353,19 +1363,21 @@
         'No stints selected' :
         `${selectedStints.size} stint${selectedStints.size > 1 ? 's' : ''} selected`;
 
+      // Initialize ECharts instance if not already created
+      if (!lapTimeChart) {
+        lapTimeChart = echarts.init(lapTimeChartContainer);
+      }
+
       if (selectedStints.size === 0) {
-        if (lapTimeChart) {
-          lapTimeChart.destroy();
-          lapTimeChart = null;
-        }
+        lapTimeChart.clear();
         return;
       }
 
       const fuelAdjusted = fuelAdjustToggle.classList.contains('active');
       const fuelEffect = parseFloat(document.getElementById("fuelEffectSlider").value) || 0;
 
-      // Create Chart.js datasets - one per stint
-      const chartDatasets = [];
+      // Create ECharts series - one per stint
+      const series = [];
 
       selectedStints.forEach(key => {
         const group = filteredGroups.get(key);
@@ -1374,7 +1386,7 @@
         const compound = getUniqueValue(group.rows, 'lap_Compound');
         const color = getF1TireColor(compound);
 
-        const points = [];
+        const data = [];
 
         // Extract lap time and tyre life data for this stint
         group.rows.forEach(r => {
@@ -1392,9 +1404,8 @@
               }
             }
 
-            points.push({
-              x: tyreLife,
-              y: lapTime,
+            data.push({
+              value: [tyreLife, lapTime],
               driver: group.lap_Driver,
               event: group.event,
               stint: group.lap_Stint,
@@ -1403,94 +1414,73 @@
           }
         });
 
-        // Sort points by tyre life for proper line connection
-        points.sort((a, b) => a.x - b.x);
+        // Sort by tyre life for proper line connection
+        data.sort((a, b) => a.value[0] - b.value[0]);
 
-        // Create a dataset for this stint
-        chartDatasets.push({
-          label: `${group.lap_Driver} - ${compound} - Stint ${group.lap_Stint}`,
-          data: points,
-          borderColor: color,
-          backgroundColor: color,
-          borderWidth: 2,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-          showLine: true,
-          tension: 0
+        // Create a series for this stint
+        series.push({
+          name: `${group.lap_Driver} - ${compound} - Stint ${group.lap_Stint}`,
+          type: 'line',
+          data: data,
+          showSymbol: true,
+          symbol: 'circle',
+          symbolSize: 4,
+          itemStyle: { borderWidth: 0 },
+          color: color,
+          lineStyle: { width: 2, opacity: 0.95, color: color },
+          emphasis: { focus: 'series', blurScope: 'global', lineStyle: { width: 3.2 } },
+          blur: { lineStyle: { opacity: 0.5 } },
+          animation: false
         });
       });
 
-      // Destroy existing chart
-      if (lapTimeChart) {
-        lapTimeChart.destroy();
-      }
-
-      // Create new chart
-      lapTimeChart = new Chart(lapTimeChartCanvas, {
-        type: 'scatter',
-        data: {
-          datasets: chartDatasets
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: true,
-          aspectRatio: 2,
-          plugins: {
-            legend: {
-              display: false
-            },
-            tooltip: {
-              callbacks: {
-                label: function(context) {
-                  const point = context.raw;
-                  return [
-                    `${point.driver} - ${point.event}`,
-                    `${point.compound} - Stint ${point.stint}`,
-                    `Tyre Life: ${point.x.toFixed(0)} laps`,
-                    `Lap Time: ${point.y.toFixed(3)}s`
-                  ];
-                }
-              }
-            }
-          },
-          scales: {
-            x: {
-              title: {
-                display: true,
-                text: 'Tyre Life (laps)',
-                color: '#00e0ff',
-                font: {
-                  size: 12,
-                  weight: 600
-                }
-              },
-              ticks: {
-                color: '#9ca3af'
-              },
-              grid: {
-                color: 'rgba(148, 163, 253, 0.1)'
-              }
-            },
-            y: {
-              title: {
-                display: true,
-                text: 'Lap Time (s)',
-                color: '#00e0ff',
-                font: {
-                  size: 12,
-                  weight: 600
-                }
-              },
-              ticks: {
-                color: '#9ca3af'
-              },
-              grid: {
-                color: 'rgba(148, 163, 253, 0.1)'
-              }
-            }
+      lapTimeChart.setOption({
+        backgroundColor: 'transparent',
+        grid: { left: 60, right: 20, top: 20, bottom: 60 },
+        tooltip: {
+          show: true,
+          trigger: 'item',
+          confine: true,
+          borderColor: '#2a2f3a',
+          backgroundColor: 'rgba(26,29,36,0.96)',
+          textStyle: { color: '#e8e8e8' },
+          extraCssText: 'padding:10px 12px;border-radius:10px',
+          formatter: (p) => {
+            const data = p.data;
+            const tyreLife = data.value[0];
+            const lapTime = data.value[1];
+            return `
+              <strong>${data.driver} - ${data.event}</strong><br/>
+              ${data.compound} - Stint ${data.stint}<br/>
+              Tyre Life: ${tyreLife.toFixed(0)} laps<br/>
+              Lap Time: ${lapTime.toFixed(3)}s
+            `;
           }
-        }
-      });
+        },
+        xAxis: {
+          type: 'value',
+          name: 'Tyre Life (laps)',
+          nameLocation: 'middle',
+          nameGap: 30,
+          scale: true,
+          nameTextStyle: { color: '#00e0ff', fontSize: 12, fontWeight: 600 },
+          axisLine: { lineStyle: { color: '#9ca3af' } },
+          axisLabel: { color: '#9ca3af' },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 253, 0.1)' } }
+        },
+        yAxis: {
+          type: 'value',
+          scale: true,
+          name: 'Lap Time (s)',
+          nameLocation: 'middle',
+          nameGap: 45,
+          nameTextStyle: { color: '#00e0ff', fontSize: 12, fontWeight: 600 },
+          axisLine: { lineStyle: { color: '#9ca3af' } },
+          axisLabel: { color: '#9ca3af' },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 253, 0.1)' } }
+        },
+        series: series
+      }, true);
     }
 
     // Set up document-level click listener for closing dropdowns (only once)
