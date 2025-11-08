@@ -771,7 +771,7 @@
 
     function init() {
       // Load tyre_choices.csv first
-      Papa.parse("tyre_choices.csv", {
+      Papa.parse("tyre_choices.csv?t=" + Date.now(), {
         download: true,
         header: true,
         skipEmptyLines: true,
@@ -802,7 +802,7 @@
     }
 
     function loadMainCSV() {
-      Papa.parse("all_df.csv", {
+      Papa.parse("all_df.csv?t=" + Date.now(), {
         download: true,
         header: true,
         skipEmptyLines: true,
