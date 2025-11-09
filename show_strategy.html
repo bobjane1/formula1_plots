@@ -512,7 +512,7 @@
     function onGPChange() {
       const selectedSeason = seasonSelect.value;
       const selectedGP = gpSelect.value;
-      sessionSelect.innerHTML = '<option value="">—</option>';
+      sessionSelect.innerHTML = '';
       sessionSelect.disabled = true;
       strategyContainer.classList.remove('show');
 
@@ -523,7 +523,9 @@
       const sessions = [];
       sessionsByKey.forEach((val, key) => {
         if (val.year === selectedSeason && val.round_no === round && val.meeting_name === meeting) {
-          sessions.push(val.session_type);
+          if (val.session_type && val.session_type.trim()) {
+            sessions.push(val.session_type);
+          }
         }
       });
 
