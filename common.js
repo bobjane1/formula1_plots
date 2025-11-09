@@ -160,6 +160,116 @@ const UIHelpers = {
     }
 
     return uniqueValues;
+  },
+
+  // Populate seasons from sessionsByKey Map
+  // Selects most recent season by default
+  populateSeasons(selectElement, sessionsByKey, options = {}) {
+    const { onChange = null } = options;
+
+    const seasons = new Set();
+    sessionsByKey.forEach((val) => {
+      if (val.year) {
+        seasons.add(val.year);
+      }
+    });
+
+    const sortedSeasons = Array.from(seasons).sort((a, b) => {
+      return parseInt(b, 10) - parseInt(a, 10); // Descending (most recent first)
+    });
+
+    selectElement.innerHTML = '';
+    sortedSeasons.forEach(year => {
+      const opt = document.createElement('option');
+      opt.value = year;
+      opt.textContent = year;
+      selectElement.appendChild(opt);
+    });
+
+    selectElement.disabled = sortedSeasons.length === 0;
+
+    // Select most recent season by default
+    if (sortedSeasons.length > 0) {
+      selectElement.value = sortedSeasons[0];
+      if (onChange) onChange();
+    }
+
+    return sortedSeasons;
+  },
+
+  // Populate GPs for a given season from sessionsByKey Map
+  // Selects last GP (highest round number) by default
+  populateGPs(selectElement, sessionsByKey, selectedSeason, options = {}) {
+    const { onChange = null } = options;
+
+    selectElement.innerHTML = '';
+    selectElement.disabled = true;
+
+    if (!selectedSeason) return [];
+
+    const gps = new Map();
+    sessionsByKey.forEach((val) => {
+      if (val.year === selectedSeason) {
+        const gpKey = `${val.round_no}||${val.meeting_name}`;
+        if (!gps.has(gpKey)) {
+          gps.set(gpKey, {
+            round_no: val.round_no,
+            meeting_name: val.meeting_name
+          });
+        }
+      }
+    });
+
+    const sortedGPs = Array.from(gps.values()).sort((a, b) => {
+      const ra = parseInt(a.round_no, 10) || 0;
+      const rb = parseInt(b.round_no, 10) || 0;
+      return ra - rb; // Ascending order
+    });
+
+    sortedGPs.forEach(gp => {
+      const opt = document.createElement('option');
+      opt.value = `${gp.round_no}||${gp.meeting_name}`;
+      opt.textContent = `${gp.round_no}. ${gp.meeting_name}`;
+      selectElement.appendChild(opt);
+    });
+
+    selectElement.disabled = sortedGPs.length === 0;
+
+    // Select last GP by default
+    if (sortedGPs.length > 0) {
+      const lastGP = sortedGPs[sortedGPs.length - 1];
+      selectElement.value = `${lastGP.round_no}||${lastGP.meeting_name}`;
+      if (onChange) onChange();
+    }
+
+    return sortedGPs;
+  },
+
+  // Populate sessions for a given season and GP from sessionsByKey Map
+  // Prefers 'R' (Race) by default, otherwise selects first
+  populateSessions(selectElement, sessionsByKey, selectedSeason, selectedGP, options = {}) {
+    const { onChange = null, preferredSession = 'R' } = options;
+
+    selectElement.innerHTML = '';
+    selectElement.disabled = true;
+
+    if (!selectedGP) return [];
+
+    const [round, meeting] = selectedGP.split('||');
+
+    const sessions = [];
+    sessionsByKey.forEach((val) => {
+      if (val.year === selectedSeason && val.round_no === round && val.meeting_name === meeting) {
+        sessions.push(val.session_type);
+      }
+    });
+
+    return this.populateSelect(selectElement, sessions, {
+      filterEmpty: true,
+      autoSelectValue: preferredSession,
+      autoSelectFirst: true,
+      onChange: onChange
+    });
   }
 };
 

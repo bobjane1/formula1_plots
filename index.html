@@ -348,99 +348,28 @@
     }
 
     function buildSeasonDropdown() {
-      const seasons = new Set();
-      sessionsByKey.forEach(val => {
-        seasons.add(val.year);
+      UIHelpers.populateSeasons(seasonSel, sessionsByKey, {
+        onChange: onSeasonChange
       });
-
-      const sortedSeasons = Array.from(seasons).sort((a, b) => {
-        const ya = parseInt(a, 10) || 0;
-        const yb = parseInt(b, 10) || 0;
-        return yb - ya; // Descending order
-      });
-
-      sortedSeasons.forEach(year => {
-        const opt = document.createElement("option");
-        opt.value = year;
-        opt.textContent = year;
-        seasonSel.appendChild(opt);
-      });
-
-      // Select most recent season by default
-      if (sortedSeasons.length > 0) {
-        seasonSel.value = sortedSeasons[0];
-        onSeasonChange();
-      }
     }
 
     function onSeasonChange() {
       const selectedSeason = seasonSel.value;
-      gpSel.innerHTML = '<option value=""></option>';
-      sessionSel.innerHTML = '<option value=""></option>';
-      gpSel.disabled = true;
+      sessionSel.innerHTML = '';
       sessionSel.disabled = true;
       debugInfo.textContent = "Select a GP";
 
-      if (!selectedSeason) return;
-
-      const gps = new Map();
-      sessionsByKey.forEach((val, key) => {
-        if (val.year === selectedSeason) {
-          const gpKey = `${val.round_no}||${val.meeting_name}`;
-          if (!gps.has(gpKey)) {
-            gps.set(gpKey, {
-              round_no: val.round_no,
-              meeting_name: val.meeting_name
-            });
-          }
-        }
+      UIHelpers.populateGPs(gpSel, sessionsByKey, selectedSeason, {
+        onChange: onGPChange
       });
-
-      const sortedGPs = Array.from(gps.values()).sort((a, b) => {
-        const ra = parseInt(a.round_no, 10) || 0;
-        const rb = parseInt(b.round_no, 10) || 0;
-        return ra - rb; // Ascending order
-      });
-
-      sortedGPs.forEach(gp => {
-        const opt = document.createElement("option");
-        opt.value = `${gp.round_no}||${gp.meeting_name}`;
-        opt.textContent = `${gp.round_no}. ${gp.meeting_name}`;
-        gpSel.appendChild(opt);
-      });
-
-      gpSel.disabled = false;
-
-      // Select last GP by default
-      if (sortedGPs.length > 0) {
-        const lastGP = sortedGPs[sortedGPs.length - 1];
-        gpSel.value = `${lastGP.round_no}||${lastGP.meeting_name}`;
-        onGPChange();
-      }
     }
 
     function onGPChange() {
       const selectedSeason = seasonSel.value;
       const selectedGP = gpSel.value;
-      sessionSel.innerHTML = '';
-      sessionSel.disabled = true;
       debugInfo.textContent = "Select a session";
 
-      if (!selectedGP) return;
-
-      const [round, meeting] = selectedGP.split('||');
-
-      const sessions = [];
-      sessionsByKey.forEach((val, key) => {
-        if (val.year === selectedSeason && val.round_no === round && val.meeting_name === meeting) {
-          sessions.push(val.session_type);
-        }
-      });
-
-      UIHelpers.populateSelect(sessionSel, sessions, {
-        filterEmpty: true,
-        autoSelectValue: 'R',
-        autoSelectFirst: true,
+      UIHelpers.populateSessions(sessionSel, sessionsByKey, selectedSeason, selectedGP, {
         onChange: onSessionChange
       });
     }
