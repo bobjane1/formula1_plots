@@ -517,7 +517,7 @@
         const position = parseInt(r.lap_Position);
         const lapTime = parseFloat(r.lap_Time);
 
-        if (isNaN(lapNum) || !driver || isNaN(lapTime)) return;
+        if (isNaN(lapNum) || !driver || isNaN(lapTime) || isNaN(position)) return;
 
         if (!lapData.has(lapNum)) {
           lapData.set(lapNum, []);
@@ -525,7 +525,7 @@
 
         lapData.get(lapNum).push({
           driver,
-          position: isNaN(position) ? 999 : position,
+          position,
           lapTime
         });
       });
