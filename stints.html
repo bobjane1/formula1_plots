@@ -717,6 +717,10 @@
             <label for="filterIncludeLapped">Lapped</label>
           </div>
           <div class="checkbox-group">
+            <input type="checkbox" id="filterIncludeRetired" checked>
+            <label for="filterIncludeRetired">Retired</label>
+          </div>
+          <div class="checkbox-group">
             <input type="checkbox" id="filterRainfall" checked>
             <label for="filterRainfall">Rainfall</label>
           </div>
@@ -909,6 +913,7 @@
       document.getElementById("filterSafetyCar").addEventListener("change", onEventSelectionChange);
       document.getElementById("filterPitLaps").addEventListener("change", onEventSelectionChange);
       document.getElementById('filterIncludeLapped').addEventListener('change', onEventSelectionChange);
+      document.getElementById('filterIncludeRetired').addEventListener('change', onEventSelectionChange);
 
       // Fuel effect slider
       const fuelEffectSlider = document.getElementById("fuelEffectSlider");
@@ -942,6 +947,7 @@
       const excludeSafetyCar = document.getElementById("filterSafetyCar").checked;
       const excludePitLaps = document.getElementById("filterPitLaps").checked;
       const excludeLapped = document.getElementById('filterIncludeLapped').checked;
+      const excludeRetired = document.getElementById('filterIncludeRetired').checked;
       
       return rows.filter(r => {
         // Min lap number
@@ -955,13 +961,15 @@
           if (lapNum > maxLap) return false;
         }
         
-        // Finish status: always include 'Finished'. Optionally include lapped drivers
-        const status = String(r.finish_status || "").trim();
-        if (status !== 'Finished' && (excludeLapped || !(status === 'Lapped' || status === '+1 Lap'))) {
-          console.log(`Excluding ${status} for ${r.lap_Driver} and ${r.year} ${r.round_no}`);
-          return false;
-        }
-        
+        const status = String(r.finish_status ?? "").trim();
+        const plusLapsMatch = status.match(/^\+(\d+)\sLaps$/);
+        const lapsBehind = plusLapsMatch ? Number(plusLapsMatch[1]) : 0;
+        if (lapsBehind > 1) return false; // "+2 Laps", "+3 Laps", etc.: exclude
+        const isLapped = status === "Lapped" || status === "+1 Lap";
+        if (excludeLapped && isLapped) return false;
+        const isFinished = status === "Finished" || isLapped;
+        if (excludeRetired && !isFinished) return false;
+
         // Rainfall
         if (excludeRainfall) {
           const rainfall = String(r.weather_Rainfall || "").trim().toLowerCase();
@@ -1066,7 +1074,7 @@
       onEventSelectionChange();
     }
 
-    function onEventSelectionChange() {
+    function onEventSelectionChange(evt=null) {
       const checked = Array.from(
         eventsList.querySelectorAll("input[type='checkbox']:checked")
       ).map(cb => cb.value);
