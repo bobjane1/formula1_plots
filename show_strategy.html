@@ -537,9 +537,9 @@
 
       sessionSelect.disabled = false;
 
-      // Select Race by default if available, otherwise first session
-      if (uniqueSessions.includes('Race')) {
-        sessionSelect.value = 'Race';
+      // Select R by default if available, otherwise first session
+      if (uniqueSessions.includes('R')) {
+        sessionSelect.value = 'R';
         onSessionChange();
       } else if (uniqueSessions.length > 0) {
         sessionSelect.value = uniqueSessions[0];
