@@ -1,0 +1,23 @@
+{
+    "Brazil": {
+        "Num Laps": 71,
+        "Pit Loss": 21.8,
+        "SC Length": 5,
+        "Fuel Effect": 0.025,
+        "Softs": {"Pace": 75.0, "Deg": 0.08},
+        "Mediums": {"Pace": 75.5, "Deg": 0.06},
+        "Hards": {"Pace": 76.5, "Deg": 0.02},
+        "Strategies Of Interest": [["M,S,S", "S,M,S", "M,S", "S,M"]]
+    },
+
+    "Last Vegas": {
+        "Num Laps": 50,
+        "Pit Loss": 21.8,
+        "SC Length": 5,
+        "Fuel Effect": 0.07,
+        "Softs": {"Pace": 95.0, "Deg": 0.3},
+        "Mediums": {"Pace": 95.4, "Deg": 0.15},
+        "Hards": {"Pace": 95.5, "Deg": 0.07},
+        "Strategies Of Interest": [["M,H", "H,M", "M,H,H", "H,M,H", "M,H,S"]]
+    }
+}

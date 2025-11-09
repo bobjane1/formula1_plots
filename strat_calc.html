@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <title>Strategy Optimizer</title>
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+  <script src="common.js"></script>
   <style>
     :root {
       --bg: #050608;
@@ -88,6 +89,25 @@
       margin-bottom: 8px;
       color: var(--muted);
       font-size: 0.9rem;
+    }
+
+    .config-header {
+      margin-bottom: 8px;
+    }
+
+    .config-select {
+      background: var(--bg-elevated);
+      color: var(--text);
+      border: 1px solid var(--border-subtle);
+      padding: 8px 14px;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      min-width: 200px;
+    }
+
+    .config-select:hover {
+      border-color: var(--accent);
     }
 
     /* Layout: inputs left, outputs right */
@@ -402,7 +422,11 @@
     <a href="strat_calc.html" class="active">Strategy Calculator</a>
   </nav>
   <div class="page-wrapper">
-  <h4>Mini Strategy Calculator – Calculates the optimal strategy taking into account tyre degradation, pit stop time loss, and safety car probabilities.</h4>
+  <div class="config-header">
+    <select id="configSelect" class="config-select">
+      <option value="">Load Config...</option>
+    </select>
+  </div>
   <div class="layout">
     <!-- LEFT: INPUTS -->
     <div class="left-pane">
@@ -520,6 +544,85 @@
 
   <script>
     const INF = 1e18;
+
+    /* Config loading */
+    let configData = {};
+
+    function loadConfigFile() {
+      fetch(DataCache.getCSVUrl('strat_calc_config.json'))
+        .then(response => response.json())
+        .then(data => {
+          configData = data;
+          populateConfigDropdown();
+        })
+        .catch(error => {
+          console.error('Error loading config file:', error);
+        });
+    }
+
+    function populateConfigDropdown() {
+      const configSelect = document.getElementById('configSelect');
+      configSelect.innerHTML = '<option value="">Load Config...</option>';
+
+      Object.keys(configData).forEach(configName => {
+        const option = document.createElement('option');
+        option.value = configName;
+        option.textContent = configName;
+        configSelect.appendChild(option);
+      });
+    }
+
+    function loadConfig(configName) {
+      if (!configName || !configData[configName]) return;
+
+      const config = configData[configName];
+
+      // Map config fields to input IDs
+      document.getElementById('numLaps').value = config['Num Laps'] || '';
+      document.getElementById('pitLoss').value = config['Pit Loss'] || '';
+      document.getElementById('scLength').value = config['SC Length'] || '';
+      document.getElementById('fuelEffect').value = config['Fuel Effect'] || '';
+
+      // Load compound data
+      if (config['Softs']) {
+        document.getElementById('paceS').value = config['Softs']['Pace'] || '';
+        document.getElementById('degS').value = config['Softs']['Deg'] || '';
+      }
+      if (config['Mediums']) {
+        document.getElementById('paceM').value = config['Mediums']['Pace'] || '';
+        document.getElementById('degM').value = config['Mediums']['Deg'] || '';
+      }
+      if (config['Hards']) {
+        document.getElementById('paceH').value = config['Hards']['Pace'] || '';
+        document.getElementById('degH').value = config['Hards']['Deg'] || '';
+      }
+
+      // Load strategies of interest
+      if (config['Strategies Of Interest']) {
+        const strategies = config['Strategies Of Interest'][0] || []; // Get first array element
+        const strategyInputs = document.querySelectorAll('.strategyInput');
+
+        // Clear all strategy inputs first
+        strategyInputs.forEach(input => input.value = '');
+
+        // Populate with strategies from config
+        strategies.forEach((strategy, index) => {
+          if (index < strategyInputs.length) {
+            strategyInputs[index].value = strategy;
+          }
+        });
+      }
+    }
+
+    // Initialize config dropdown on page load
+    document.addEventListener('DOMContentLoaded', () => {
+      loadConfigFile();
+
+      // Handle config selection
+      document.getElementById('configSelect').addEventListener('change', (e) => {
+        loadConfig(e.target.value);
+      });
+    });
 
     /* Core helpers */
 
