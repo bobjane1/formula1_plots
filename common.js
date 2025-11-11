@@ -2,32 +2,43 @@
 
 // Cache management
 const DataCache = {
-  // Storage key for cache bust flag
+  // Storage keys
   CACHE_BUST_KEY: 'f1_data_cache_bust',
+  SESSION_VERSION_KEY: 'f1_session_version',
 
   // Cache of bust parameter for this page load
-  _bustParam: null,
-  _bustParamInitialized: false,
+  _sessionVersion: null,
+  _sessionVersionInitialized: false,
 
-  // Check if we should bust cache (only set temporarily after reload button click)
-  shouldBustCache() {
-    if (!this._bustParamInitialized) {
-      this._bustParam = sessionStorage.getItem(this.CACHE_BUST_KEY);
-      this._bustParamInitialized = true;
-
-      if (this._bustParam) {
-        // Clear the flag after reading it once
+  // Get or create session version (persists for entire browser session)
+  getSessionVersion() {
+    if (!this._sessionVersionInitialized) {
+      // Check if we have a reload flag set
+      const reloadFlag = sessionStorage.getItem(this.CACHE_BUST_KEY);
+      if (reloadFlag) {
+        // Reload was requested - create new session version
+        this._sessionVersion = reloadFlag;
+        sessionStorage.setItem(this.SESSION_VERSION_KEY, reloadFlag);
         sessionStorage.removeItem(this.CACHE_BUST_KEY);
+      } else {
+        // Check if we already have a session version
+        this._sessionVersion = sessionStorage.getItem(this.SESSION_VERSION_KEY);
       }
+      this._sessionVersionInitialized = true;
     }
-    return this._bustParam;
+    return this._sessionVersion;
   },
 
-  // Get CSV URL - only add cache buster if reload was requested
+  // Check if we should bust cache
+  shouldBustCache() {
+    return this.getSessionVersion();
+  },
+
+  // Get CSV URL - add cache buster if session version exists
   getCSVUrl(filename) {
-    const bustParam = this.shouldBustCache();
-    if (bustParam) {
-      const url = `${filename}?v=${bustParam}`;
+    const sessionVersion = this.getSessionVersion();
+    if (sessionVersion) {
+      const url = `${filename}?v=${sessionVersion}`;
       return url;
     }
     // No query parameter - let browser use normal HTTP caching
