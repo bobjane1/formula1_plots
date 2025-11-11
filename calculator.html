@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Strategy Optimizer</title>
+  <link rel="stylesheet" href="common.css">
   <script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
   <script src="common.js"></script>
   <style>
@@ -31,37 +32,6 @@
       font-family: var(--font);
       line-height: 1.4;
       overflow: hidden; /* layout uses internal scrolls */
-    }
-
-    .top-nav {
-      background: #0a0c14;
-      border-bottom: 1px solid var(--border-subtle);
-      padding: 0;
-      display: flex;
-      justify-content: flex-start;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-    }
-
-    .top-nav a {
-      color: var(--muted);
-      text-decoration: none;
-      padding: 12px 24px;
-      font-size: 13px;
-      font-weight: 500;
-      transition: all var(--transition-fast);
-      border-bottom: 2px solid transparent;
-    }
-
-    .top-nav a:hover {
-      color: var(--text);
-      background: rgba(79, 209, 197, 0.05);
-    }
-
-    .top-nav a.active {
-      color: var(--accent);
-      border-bottom-color: var(--accent);
     }
 
     .page-wrapper {

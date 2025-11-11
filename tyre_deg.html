@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>Race Selector</title>
+  <link rel="stylesheet" href="common.css">
   <style>
     :root {
       --bg-color: #02040a;
@@ -27,37 +28,6 @@
       font-family: var(--font);
       background: radial-gradient(circle at top, #050816 0, #000 55%, #000 100%);
       color: var(--text-color);
-    }
-
-    .top-nav {
-      background: #0a0c14;
-      border-bottom: 1px solid var(--border-color);
-      padding: 0;
-      display: flex;
-      justify-content: flex-start;
-      position: sticky;
-      top: 0;
-      z-index: 1000;
-    }
-
-    .top-nav a {
-      color: var(--muted-color);
-      text-decoration: none;
-      padding: 12px 24px;
-      font-size: 13px;
-      font-weight: 500;
-      transition: all var(--transition-fast);
-      border-bottom: 2px solid transparent;
-    }
-
-    .top-nav a:hover {
-      color: var(--text-color);
-      background: rgba(0, 224, 255, 0.05);
-    }
-
-    .top-nav a.active {
-      color: var(--accent-color);
-      border-bottom-color: var(--accent-color);
     }
 
     .page-content {

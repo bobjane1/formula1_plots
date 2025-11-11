@@ -1,0 +1,33 @@
+/* Common styles for F1 data visualization pages */
+
+/* Top navigation bar */
+.top-nav {
+  background: #0a0c14;
+  border-bottom: 1px solid #27272f;
+  padding: 0;
+  display: flex;
+  justify-content: flex-start;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+}
+
+.top-nav a {
+  color: #9ca3af;
+  text-decoration: none;
+  padding: 12px 24px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: all 0.18s ease-out;
+  border-bottom: 2px solid transparent;
+}
+
+.top-nav a:hover {
+  color: #f5f5f5;
+  background: rgba(0, 224, 255, 0.05);
+}
+
+.top-nav a.active {
+  color: #00e0ff;
+  border-bottom-color: #00e0ff;
+}
