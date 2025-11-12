@@ -30,6 +30,40 @@
       min-width: 200px;
     }
 
+    .small {
+      color: var(--muted-color);
+      font-size: 12px;
+    }
+
+    select {
+      min-width: 160px;
+      width: auto;
+    }
+
+    #sessionSel {
+      min-width: 120px;
+    }
+
+    .tyre-choices-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 8px 12px;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 6px;
+      font-size: 14px;
+    }
+
+    .tyre-choices-label {
+      font-weight: 600;
+      color: var(--primary-color);
+    }
+
+    #tyreChoicesText {
+      color: var(--text-color);
+    }
+
     .field {
       display: flex;
       flex-direction: column;
@@ -502,13 +536,24 @@
   <div class="page-content">
   <div class="container">
     <div class="header">
-      <div class="field horizontal circuit-selector">
-        <div class="label">Circuit</div>
-        <select id="circuitSelect">
-          <option value="">—</option>
-        </select>
-      </div>
-      <div class="status-message" id="statusMessage">Loading...</div>
+      <label class="small" for="seasonSel">Season</label>
+      <select id="seasonSel" title="Season">
+        <option value=""></option>
+      </select>
+      <label class="small" for="gpSel">GP</label>
+      <select id="gpSel" title="Grand Prix" disabled>
+        <option value=""></option>
+      </select>
+      <label class="small" for="sessionSel">Session</label>
+      <select id="sessionSel" title="Session type" disabled>
+        <option value=""></option>
+      </select>
+      <span class="status-message" id="statusMessage">Loading...</span>
+    </div>
+
+    <div id="tyreChoicesDisplay" class="tyre-choices-display" style="display: none;">
+      <div class="tyre-choices-label">Tyre Choices:</div>
+      <div id="tyreChoicesText"></div>
     </div>
 
     <div id="chartsWrapper" class="charts-wrapper" style="display: none;">
@@ -532,13 +577,6 @@
     </div>
 
     <div class="filters-section">
-      <div class="filter-panel">
-        <div class="filters-title">Events</div>
-        <div id="eventsList" class="events-list">
-          <div class="events-placeholder">Select a circuit to view events</div>
-        </div>
-      </div>
-
       <div class="filter-panel">
         <div class="filters-grid">
           <div class="filter-item vertical">
@@ -613,11 +651,14 @@
   <script src="common.js"></script>
 
   <script>
-    const circuitSelect = document.getElementById("circuitSelect");
-    const eventsList = document.getElementById("eventsList");
+    const seasonSel = document.getElementById("seasonSel");
+    const gpSel = document.getElementById("gpSel");
+    const sessionSel = document.getElementById("sessionSel");
     const statusMessage = document.getElementById("statusMessage");
     const groupsTableContainer = document.getElementById("groupsTableContainer");
     const chartsWrapper = document.getElementById("chartsWrapper");
+    const tyreChoicesDisplay = document.getElementById("tyreChoicesDisplay");
+    const tyreChoicesText = document.getElementById("tyreChoicesText");
     const scatterChartContainer = document.getElementById("scatterChart");
     const lapTimeChartContainer = document.getElementById("lapTimeChart");
     const equationsSection = document.getElementById("equationsSection");
@@ -626,7 +667,7 @@
     const selectedStintCount = document.getElementById("selectedStintCount");
 
     let allRows = [];
-    let eventsByKey = new Map(); // key -> {year, round_no, meeting_name, circuit_name}
+    let sessionsByKey = new Map(); // key -> {year, round_no, meeting_name, session_type, circuit_name}
     let tyreChoices = new Map(); // key (year||round_no) -> {hard, medium, soft}
     let circuitConfig = {}; // Circuit config from strat_calc_config.json
     let scatterChart = null; // ECharts instance
@@ -717,14 +758,10 @@
             return;
           }
 
-          buildCircuitDropdown(allRows);
-          indexEvents(allRows);
+          indexSessions(allRows);
+          buildSeasonDropdown();
           setupFilterListeners();
           statusMessage.textContent = `${allRows.length} laps loaded`;
-
-          // Set default circuit
-          circuitSelect.value = "Las Vegas";
-          onCircuitChange();
         },
         error: function (err) {
           console.error("Papa Parse error:", err);
@@ -732,73 +769,96 @@
         }
       });
 
-      circuitSelect.addEventListener("change", onCircuitChange);
+      seasonSel.addEventListener("change", onSeasonChange);
+      gpSel.addEventListener("change", onGPChange);
+      sessionSel.addEventListener("change", onSessionChange);
     }
 
-    function buildCircuitDropdown(rows) {
-      const circuits = new Set();
-
-      rows.forEach(r => {
-        const name = (r.circuit_name || "").trim();
-        if (name) circuits.add(name);
-      });
-
-      const sortedCircuits = Array.from(circuits).sort((a, b) =>
-        a.localeCompare(b, undefined, { sensitivity: "base" })
-      );
-
-      sortedCircuits.forEach(name => {
-        const opt = document.createElement("option");
-        opt.value = name;
-        opt.textContent = name;
-        circuitSelect.appendChild(opt);
+    function buildSeasonDropdown() {
+      UIHelpers.populateSeasons(seasonSel, sessionsByKey, {
+        onChange: onSeasonChange
       });
     }
 
-    function indexEvents(rows) {
-      eventsByKey.clear();
+    function onSeasonChange() {
+      const selectedSeason = seasonSel.value;
+      sessionSel.innerHTML = '';
+      sessionSel.disabled = true;
+
+      // Clear display
+      groupsTableContainer.innerHTML = "";
+      tyreChoicesDisplay.style.display = "none";
+      selectedStints.clear();
+      window.previousFilteredStints = [];
+
+      UIHelpers.populateGPs(gpSel, sessionsByKey, selectedSeason, {
+        onChange: onGPChange
+      });
+    }
+
+    function onGPChange() {
+      const selectedSeason = seasonSel.value;
+      const selectedGP = gpSel.value;
+
+      // Clear display
+      groupsTableContainer.innerHTML = "";
+      tyreChoicesDisplay.style.display = "none";
+      selectedStints.clear();
+      window.previousFilteredStints = [];
+
+      // Filter to only include Race (R) and Sprint (S) sessions
+      const sessionFilter = (session) => {
+        return session.session_type === 'R' || session.session_type === 'S';
+      };
+
+      UIHelpers.populateSessions(sessionSel, sessionsByKey, selectedSeason, selectedGP, {
+        onChange: onSessionChange,
+        filter: sessionFilter
+      });
+    }
+
+    function indexSessions(rows) {
+      sessionsByKey.clear();
 
       rows.forEach(r => {
         const year = String(r.year || "").trim();
         const round = String(r.round_no || "").trim();
         const meeting = String(r.meeting_name || "").trim();
+        const sessionType = String(r.session_type || "").trim();
         const circuit = String(r.circuit_name || "").trim();
-        if (!year || !round || !meeting || !circuit) return;
+        if (!year || !round || !meeting || !sessionType || !circuit) return;
 
-        const key = makeEventKey(year, round, meeting, circuit);
-        if (!eventsByKey.has(key)) {
-          eventsByKey.set(key, {
+        const key = `${year}||${round}||${meeting}||${sessionType}`;
+        if (!sessionsByKey.has(key)) {
+          sessionsByKey.set(key, {
             year,
             round_no: round,
             meeting_name: meeting,
+            session_type: sessionType,
             circuit_name: circuit
           });
         }
       });
     }
 
-    function makeEventKey(year, round, meeting, circuit) {
-      return `${year}||${round}||${meeting}||${circuit}`;
-    }
-
     function setupFilterListeners() {
-      document.getElementById("filterMinLap").addEventListener("input", onEventSelectionChange);
-      document.getElementById("filterEndLaps").addEventListener("input", onEventSelectionChange);
-      document.getElementById("filterMinDist").addEventListener("input", onEventSelectionChange);
-      document.getElementById("filterMinRows").addEventListener("input", onEventSelectionChange);
-      document.getElementById("filterMinCorr").addEventListener("input", onEventSelectionChange);
-      document.getElementById("filterRainfall").addEventListener("change", onEventSelectionChange);
-      document.getElementById("filterSafetyCar").addEventListener("change", onEventSelectionChange);
-      document.getElementById("filterPitLaps").addEventListener("change", onEventSelectionChange);
-      document.getElementById('filterIncludeLapped').addEventListener('change', onEventSelectionChange);
-      document.getElementById('filterIncludeRetired').addEventListener('change', onEventSelectionChange);
+      document.getElementById("filterMinLap").addEventListener("input", onSessionChange);
+      document.getElementById("filterEndLaps").addEventListener("input", onSessionChange);
+      document.getElementById("filterMinDist").addEventListener("input", onSessionChange);
+      document.getElementById("filterMinRows").addEventListener("input", onSessionChange);
+      document.getElementById("filterMinCorr").addEventListener("input", onSessionChange);
+      document.getElementById("filterRainfall").addEventListener("change", onSessionChange);
+      document.getElementById("filterSafetyCar").addEventListener("change", onSessionChange);
+      document.getElementById("filterPitLaps").addEventListener("change", onSessionChange);
+      document.getElementById('filterIncludeLapped').addEventListener('change', onSessionChange);
+      document.getElementById('filterIncludeRetired').addEventListener('change', onSessionChange);
 
       // Fuel effect slider
       const fuelEffectSlider = document.getElementById("fuelEffectSlider");
       const fuelEffectValue = document.getElementById("fuelEffectValue");
       fuelEffectSlider.addEventListener("input", function() {
         fuelEffectValue.textContent = parseFloat(this.value).toFixed(3);
-        onEventSelectionChange();
+        onSessionChange();
       });
 
       // Fuel adjust toggle for lap time chart
@@ -885,129 +945,52 @@
       });
     }
 
-    function onCircuitChange() {
-      const selectedCircuit = circuitSelect.value;
-      eventsList.innerHTML = "";
+    function onSessionChange() {
+      const selectedSeason = seasonSel.value;
+      const selectedGP = gpSel.value;
+      const selectedSession = sessionSel.value;
 
-      // Reset stint tracking when circuit changes
-      window.previousFilteredStints = [];
+      if (!selectedSeason || !selectedGP || !selectedSession) {
+        groupsTableContainer.innerHTML = "";
+        tyreChoicesDisplay.style.display = "none";
+        return;
+      }
 
-      // Set fuel effect from circuit config if available
-      if (selectedCircuit && circuitConfig[selectedCircuit] && circuitConfig[selectedCircuit]["Fuel Effect"] !== undefined) {
-        const fuelEffect = circuitConfig[selectedCircuit]["Fuel Effect"];
+      const [round, meeting] = selectedGP.split('||');
+
+      // Filter rows for this session
+      const matchingRows = allRows.filter(r => {
+        return String(r.year || "").trim() === selectedSeason &&
+               String(r.round_no || "").trim() === round &&
+               String(r.meeting_name || "").trim() === meeting &&
+               String(r.session_type || "").trim() === selectedSession;
+      });
+
+      if (matchingRows.length === 0) {
+        groupsTableContainer.innerHTML = "";
+        tyreChoicesDisplay.style.display = "none";
+        return;
+      }
+
+      // Get circuit name from first row and set fuel effect from config
+      const circuitName = String(matchingRows[0].circuit_name || "").trim();
+      if (circuitName && circuitConfig[circuitName] && circuitConfig[circuitName]["Fuel Effect"] !== undefined) {
+        const fuelEffect = circuitConfig[circuitName]["Fuel Effect"];
+        const fuelEffectSlider = document.getElementById("fuelEffectSlider");
+        const fuelEffectValue = document.getElementById("fuelEffectValue");
         fuelEffectSlider.value = fuelEffect;
         fuelEffectValue.textContent = fuelEffect.toFixed(3);
       }
 
-      if (!selectedCircuit) {
-        const placeholder = document.createElement("div");
-        placeholder.className = "events-placeholder";
-        placeholder.textContent = "Select a circuit to view events";
-        eventsList.appendChild(placeholder);
-        return;
+      // Display tyre choices for the selected event
+      const tyreKey = `${selectedSeason}||${round}`;
+      const tyres = tyreChoices.get(tyreKey);
+      if (tyres && tyres.hard && tyres.medium && tyres.soft) {
+        tyreChoicesText.textContent = `${tyres.hard}-${tyres.medium}-${tyres.soft}`;
+        tyreChoicesDisplay.style.display = "flex";
+      } else {
+        tyreChoicesDisplay.style.display = "none";
       }
-
-      const events = [];
-      eventsByKey.forEach((val, key) => {
-        if (val.circuit_name === selectedCircuit) {
-          const label = `${val.year} - ${val.round_no}. ${val.meeting_name}`;
-          events.push({
-            key,
-            label,
-            year: val.year,
-            round_no: val.round_no
-          });
-        }
-      });
-
-      events.sort((a, b) => {
-        const ya = parseInt(a.year, 10) || 0;
-        const yb = parseInt(b.year, 10) || 0;
-        if (ya !== yb) return ya - yb;
-        const ra = parseInt(a.round_no, 10) || 0;
-        const rb = parseInt(b.round_no, 10) || 0;
-        return ra - rb;
-      });
-
-      if (!events.length) {
-        const placeholder = document.createElement("div");
-        placeholder.className = "events-placeholder";
-        placeholder.textContent = "No events found for this circuit";
-        eventsList.appendChild(placeholder);
-        return;
-      }
-
-      events.forEach((ev, index) => {
-        const wrapper = document.createElement("label");
-        wrapper.className = "event-item";
-
-        const checkbox = document.createElement("input");
-        checkbox.type = "checkbox";
-        checkbox.className = "event-checkbox";
-        checkbox.value = ev.key;
-        // Only check the last event by default
-        checkbox.checked = (index === events.length - 1);
-        checkbox.addEventListener("change", onEventSelectionChange);
-
-        const tyreKey = `${ev.year}||${ev.round_no}`;
-        const tyres = tyreChoices.get(tyreKey);
-        let tyreInfo = "";
-        if (tyres && tyres.hard && tyres.medium && tyres.soft) {
-          tyreInfo = ` (${tyres.hard}-${tyres.medium}-${tyres.soft})`;
-        }
-
-        const text = document.createElement("span");
-        text.className = "event-label-text";
-        text.textContent = ev.label + tyreInfo;
-
-        wrapper.appendChild(checkbox);
-        wrapper.appendChild(text);
-        eventsList.appendChild(wrapper);
-      });
-
-      onEventSelectionChange();
-    }
-
-    function onEventSelectionChange(evt=null) {
-      const checked = Array.from(
-        eventsList.querySelectorAll("input[type='checkbox']:checked")
-      ).map(cb => cb.value);
-
-      if (!checked.length) {
-        groupsTableContainer.innerHTML = "";
-        return;
-      }
-
-      // If this was triggered by an event checkbox (not a filter checkbox), select all stints
-      const isEventCheckbox = evt && evt.target && evt.target.type === 'checkbox' &&
-                             evt.target.classList.contains('event-checkbox');
-      if (isEventCheckbox) {
-        // Clear previous stints tracking to force all stints to be selected
-        window.previousFilteredStints = [];
-      }
-
-      const selectedEvents = checked
-        .map(key => eventsByKey.get(key))
-        .filter(Boolean);
-
-      const matchingRows = allRows.filter(r => {
-        const rYear = String(r.year || "").trim();
-        const rRound = String(r.round_no || "").trim();
-        const rMeeting = String(r.meeting_name || "").trim();
-        const rCircuit = String(r.circuit_name || "").trim();
-
-        for (const ev of selectedEvents) {
-          if (
-            rYear === ev.year &&
-            rRound === ev.round_no &&
-            rMeeting === ev.meeting_name &&
-            rCircuit === ev.circuit_name
-          ) {
-            return true;
-          }
-        }
-        return false;
-      });
 
       const filteredRows = applyFilters(matchingRows);
       displayGroupsTable(filteredRows);
