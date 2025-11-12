@@ -564,18 +564,18 @@
     }
 
     function setupFilterListeners() {
-      document.getElementById("filterMinLap").addEventListener("input", onSessionChange);
-      document.getElementById("filterEndLaps").addEventListener("input", onSessionChange);
-      document.getElementById("filterMinDist").addEventListener("input", onSessionChange);
-      document.getElementById("filterRainfall").addEventListener("change", onSessionChange);
-      document.getElementById("filterSafetyCar").addEventListener("change", onSessionChange);
-      document.getElementById("filterPitLaps").addEventListener("change", onSessionChange);
-      document.getElementById('filterIncludeLapped').addEventListener('change', onSessionChange);
-      document.getElementById('filterIncludeRetired').addEventListener('change', onSessionChange);
-      document.getElementById('degHard').addEventListener('input', onSessionChange);
-      document.getElementById('degMedium').addEventListener('input', onSessionChange);
-      document.getElementById('degSoft').addEventListener('input', onSessionChange);
-      document.getElementById('fuelEffect').addEventListener('input', onSessionChange);
+      document.getElementById("filterMinLap").addEventListener("input", onFilterChange);
+      document.getElementById("filterEndLaps").addEventListener("input", onFilterChange);
+      document.getElementById("filterMinDist").addEventListener("input", onFilterChange);
+      document.getElementById("filterRainfall").addEventListener("change", onFilterChange);
+      document.getElementById("filterSafetyCar").addEventListener("change", onFilterChange);
+      document.getElementById("filterPitLaps").addEventListener("change", onFilterChange);
+      document.getElementById('filterIncludeLapped').addEventListener('change', onFilterChange);
+      document.getElementById('filterIncludeRetired').addEventListener('change', onFilterChange);
+      document.getElementById('degHard').addEventListener('input', onAdjustmentChange);
+      document.getElementById('degMedium').addEventListener('input', onAdjustmentChange);
+      document.getElementById('degSoft').addEventListener('input', onAdjustmentChange);
+      document.getElementById('fuelEffect').addEventListener('input', onAdjustmentChange);
 
       // Toggle buttons for adjustments
       fuelAdjustToggle.addEventListener('click', function() {
@@ -587,6 +587,38 @@
         this.classList.toggle('active');
         renderLapTimeChart(currentGroups);
       });
+    }
+
+    function onFilterChange() {
+      // Re-process data without resetting adjustment values
+      if (!currentEventInfo) return;
+
+      const selectedSeason = seasonSel.value;
+      const selectedGP = gpSel.value;
+      const selectedSession = sessionSel.value;
+
+      if (!selectedSeason || !selectedGP || !selectedSession) return;
+
+      const [round, meeting] = selectedGP.split('||');
+
+      const matchingRows = allRows.filter(r => {
+        return String(r.year || "").trim() === selectedSeason &&
+               String(r.round_no || "").trim() === round &&
+               String(r.meeting_name || "").trim() === meeting &&
+               String(r.session_type || "").trim() === selectedSession;
+      });
+
+      if (matchingRows.length === 0) return;
+
+      const filteredRows = applyFilters(matchingRows);
+      processData(filteredRows);
+    }
+
+    function onAdjustmentChange() {
+      // Re-render chart with new adjustment values
+      if (currentGroups && currentGroups.size > 0) {
+        renderLapTimeChart(currentGroups);
+      }
     }
 
     function applyFilters(rows) {
