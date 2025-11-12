@@ -391,11 +391,13 @@
     let allRows = [];
     let sessionsByKey = new Map(); // key -> {year, round_no, meeting_name, session_type}
     let tyreChoices = new Map(); // key (year||round_no) -> {hard, medium, soft}
+    let circuitConfig = {}; // Circuit config from strat_calc_config.json
     let chart = null; // ECharts instance
     let selectedDrivers = new Set(); // Selected drivers for filtering
     let currentGroups = []; // Store current groups for filtering
     let driverColors = new Map(); // Driver colors for current event
     let currentEventInfo = null; // Store current year, round, session type
+    let currentCircuitName = null; // Store current circuit name for config lookup
 
     init();
 
@@ -407,11 +409,24 @@
     });
 
     function init() {
-      // Load driver info first
-      DriverInfo.load(() => {
-        // Then load tyre_choices.csv
-        loadTyreChoices();
-      });
+      // Load circuit config first
+      fetch('strat_calc_config.json')
+        .then(response => response.json())
+        .then(data => {
+          circuitConfig = data;
+          // Then load driver info
+          DriverInfo.load(() => {
+            // Then load tyre_choices.csv
+            loadTyreChoices();
+          });
+        })
+        .catch(err => {
+          console.error("Error loading strat_calc_config.json:", err);
+          // Continue even if config fails to load
+          DriverInfo.load(() => {
+            loadTyreChoices();
+          });
+        });
     }
 
     function loadTyreChoices() {
@@ -676,6 +691,29 @@
         coefficientsContainer.style.display = 'none';
         driversPanel.style.display = 'none';
         return;
+      }
+
+      // Get circuit name from first row
+      if (matchingRows.length > 0) {
+        currentCircuitName = String(matchingRows[0].circuit_name || "").trim();
+
+        // Update adjustment inputs from circuit config
+        if (currentCircuitName && circuitConfig[currentCircuitName]) {
+          const config = circuitConfig[currentCircuitName];
+
+          if (config["Hard Deg"] !== undefined) {
+            document.getElementById('degHard').value = config["Hard Deg"];
+          }
+          if (config["Medium Deg"] !== undefined) {
+            document.getElementById('degMedium').value = config["Medium Deg"];
+          }
+          if (config["Soft Deg"] !== undefined) {
+            document.getElementById('degSoft').value = config["Soft Deg"];
+          }
+          if (config["Fuel Effect"] !== undefined) {
+            document.getElementById('fuelEffect').value = config["Fuel Effect"];
+          }
+        }
       }
 
       const filteredRows = applyFilters(matchingRows);
