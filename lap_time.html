@@ -823,7 +823,9 @@
 
       // Create series - one per stint for selected drivers
       const series = [];
+      const seriesIndexByDriver = new Map(); // Map driver to array of series indices
 
+      let seriesIdx = 0;
       driverData.forEach((stints, driver) => {
         // Only plot drivers that are checked
         if (!selectedDrivers.has(driver)) {
@@ -870,6 +872,12 @@
           const compoundColor = getF1TireColor(compound);
           const driverColor = driverColors.get(driver) || '#888888';
 
+          // Track series index for this driver
+          if (!seriesIndexByDriver.has(driver)) {
+            seriesIndexByDriver.set(driver, []);
+          }
+          seriesIndexByDriver.get(driver).push(seriesIdx);
+
           // Create a series for this stint
           series.push({
             name: `${driver} - Stint ${stintNumber}`,
@@ -879,10 +887,20 @@
             symbol: 'circle',
             symbolSize: 8,
             lineStyle: { width: 2, color: compoundColor },
+            triggerLineEvent: true, // Enable line hover events
             itemStyle: {
               color: driverColor,  // Use driver color for markers
               borderColor: driverColor,
               borderWidth: 2
+            },
+            emphasis: {
+              focus: 'none', // Don't use built-in focus
+              lineStyle: { width: 3 },
+              scale: true
+            },
+            blur: {
+              lineStyle: { opacity: 0.05 },
+              itemStyle: { opacity: 0.05 }
             },
             endLabel: {
               show: isLastStint,
@@ -892,8 +910,11 @@
               color: driverColor,
               fontSize: 11
             },
-            animation: false
+            animation: false,
+            driver: driver // Store driver name for custom hover logic
           });
+
+          seriesIdx++;
         });
       });
 
@@ -957,6 +978,60 @@
 
       // Resize chart
       chart.resize();
+
+      // Custom hover behavior to highlight all series for a driver
+      chart.off('mouseover');
+      chart.off('mouseout');
+
+      let currentHoveredDriver = null;
+
+      chart.on('mouseover', (params) => {
+        if (params.componentType === 'series' && params.seriesType === 'line') {
+          const hoveredDriver = params.seriesName.split(' - ')[0]; // Extract driver name
+
+          if (currentHoveredDriver === hoveredDriver) return; // Already hovering this driver
+          currentHoveredDriver = hoveredDriver;
+
+          const driverSeriesIndices = seriesIndexByDriver.get(hoveredDriver) || [];
+
+          // Update chart option to emphasize/blur
+          const updatedSeries = series.map((s, idx) => {
+            if (driverSeriesIndices.includes(idx)) {
+              // Emphasize this driver's series
+              return {
+                lineStyle: { width: 3, color: s.lineStyle.color, opacity: 1 },
+                itemStyle: { ...s.itemStyle, opacity: 1 }
+              };
+            } else {
+              // Blur other drivers' series
+              return {
+                lineStyle: { width: 2, color: s.lineStyle.color, opacity: 0.15 },
+                itemStyle: { ...s.itemStyle, opacity: 0.05 }
+              };
+            }
+          });
+
+          chart.setOption({
+            series: updatedSeries
+          });
+        }
+      });
+
+      chart.on('mouseout', (params) => {
+        if (params.componentType === 'series' && params.seriesType === 'line') {
+          currentHoveredDriver = null;
+
+          // Reset all series to normal
+          const resetSeries = series.map(s => ({
+            lineStyle: { width: 2, color: s.lineStyle.color, opacity: 1 },
+            itemStyle: { ...s.itemStyle, opacity: 1 }
+          }));
+
+          chart.setOption({
+            series: resetSeries
+          });
+        }
+      });
     }
 
     function processData(rows) {
