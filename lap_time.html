@@ -1297,13 +1297,15 @@
               // Emphasize this driver's series
               return {
                 lineStyle: { width: 3, color: s.lineStyle.color, opacity: 1 },
-                itemStyle: { ...s.itemStyle, opacity: 1 }
+                itemStyle: { ...s.itemStyle, opacity: 1 },
+                endLabel: { ...s.endLabel, opacity: 1 }
               };
             } else {
               // Blur other drivers' series
               return {
                 lineStyle: { width: 2, color: s.lineStyle.color, opacity: 0.15 },
-                itemStyle: { ...s.itemStyle, opacity: 0.05 }
+                itemStyle: { ...s.itemStyle, opacity: 0.05 },
+                endLabel: { ...s.endLabel, opacity: 0.15 }
               };
             }
           });
@@ -1326,7 +1328,8 @@
             }
             return {
               lineStyle: { width: 2, color: s.lineStyle.color, opacity: 1 },
-              itemStyle: { ...s.itemStyle, opacity: 1 }
+              itemStyle: { ...s.itemStyle, opacity: 1 },
+              endLabel: { ...s.endLabel, opacity: 1 }
             };
           });
 
@@ -1426,9 +1429,10 @@
       // Build driver list (in finishing order)
       const drivers = sortedDrivers.map(d => d.driver);
 
-      // Auto-select P1 driver if no drivers are currently selected
+      // Auto-select top 5 drivers if no drivers are currently selected
       if (selectedDrivers.size === 0 && drivers.length > 0) {
-        selectedDrivers.add(drivers[0]); // drivers[0] is P1 (winner)
+        const top5 = drivers.slice(0, Math.min(5, drivers.length));
+        top5.forEach(driver => selectedDrivers.add(driver));
       }
 
       buildDriversList(drivers);
