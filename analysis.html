@@ -21,33 +21,39 @@
     /* Tab Navigation */
     .tab-navigation {
       display: flex;
-      gap: 0;
+      gap: 8px;
       margin-bottom: 16px;
-      border-bottom: 2px solid var(--border-color);
       align-items: center;
+      padding: 8px;
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 12px;
+      border: 1px solid var(--border-color);
     }
 
     .tab-button {
-      padding: 12px 24px;
+      padding: 10px 20px;
       background: transparent;
       border: none;
-      border-bottom: 3px solid transparent;
+      border-radius: 8px;
       color: var(--muted-color);
       font-size: 14px;
       font-weight: 600;
       cursor: pointer;
-      transition: all 0.2s ease;
-      margin-bottom: -2px;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      position: relative;
     }
 
     .tab-button:hover {
       color: var(--text-color);
-      background: rgba(255, 255, 255, 0.03);
+      background: rgba(255, 255, 255, 0.05);
+      transform: translateY(-1px);
     }
 
     .tab-button.active {
-      color: var(--primary-color);
-      border-bottom-color: var(--primary-color);
+      color: #fff;
+      background: linear-gradient(135deg, rgba(0, 224, 255, 0.15), rgba(0, 180, 255, 0.1));
+      box-shadow: 0 0 20px rgba(0, 224, 255, 0.3), inset 0 0 10px rgba(0, 224, 255, 0.1);
+      border: 1px solid rgba(0, 224, 255, 0.3);
     }
 
     .tab-navigation .status-message {
@@ -58,9 +64,9 @@
     }
 
     .tab-navigation #reloadDataBtn {
-      margin-bottom: -2px;
       padding: 8px 16px;
       font-size: 12px;
+      border-radius: 8px;
     }
 
     /* Session Selector */
