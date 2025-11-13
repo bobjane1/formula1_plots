@@ -280,7 +280,28 @@
       margin-bottom: 16px;
     }
 
+    .race-trace-controls-row {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 16px;
+      align-items: center;
+    }
+
+    .race-trace-controls-box {
+      display: flex;
+      gap: 8px;
+      padding: 10px 14px;
+      background: rgba(0, 224, 255, 0.03);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      align-items: center;
+    }
+
     .race-trace-controls input[type="number"] {
+      width: 90px;
+    }
+
+    .race-trace-controls-box input[type="number"] {
       width: 90px;
     }
 
@@ -562,13 +583,17 @@
 
     <!-- Race Trace Panel -->
     <div id="race-trace-panel" class="content-panel">
-      <div class="race-trace-controls">
-        <button id="raceTraceBtnAll" type="button">Select all</button>
-        <button id="raceTraceBtnNone" type="button">Clear all</button>
-        <label class="small" for="raceTraceLapMin">Lap min</label>
-        <input id="raceTraceLapMin" type="number" min="1" step="1" value="1" title="Min lap" />
-        <label class="small" for="raceTraceLapMax">Lap max</label>
-        <input id="raceTraceLapMax" type="number" min="1" step="1" value="1" title="Max lap" />
+      <div class="race-trace-controls-row">
+        <div class="race-trace-controls-box">
+          <button id="raceTraceBtnAll" type="button">Select all</button>
+          <button id="raceTraceBtnNone" type="button">Clear all</button>
+        </div>
+        <div class="race-trace-controls-box">
+          <label class="small" for="raceTraceLapMin">Lap min</label>
+          <input id="raceTraceLapMin" type="number" min="1" step="1" value="1" title="Min lap" />
+          <label class="small" for="raceTraceLapMax">Lap max</label>
+          <input id="raceTraceLapMax" type="number" min="1" step="1" value="1" title="Max lap" />
+        </div>
       </div>
 
       <div class="race-trace-layout">
@@ -587,7 +612,6 @@
     <div id="lap-time-panel" class="content-panel">
       <div class="lap-time-layout">
         <div class="lap-time-sidebar">
-          <div class="drivers-title">Drivers</div>
           <div id="lapTimeDriversList"></div>
         </div>
         <div class="lap-time-chart-wrapper">
