@@ -817,6 +817,45 @@
       border-color: var(--accent-color);
       background: rgba(0, 224, 255, 0.15);
     }
+
+    /* ========================================================================
+       FUEL EFFECT PANEL STYLES
+       ======================================================================== */
+
+    .groups-table {
+      margin-top: 20px;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+
+    .groups-table th {
+      background: rgba(0, 224, 255, 0.1);
+      color: var(--accent-color);
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 10px;
+      border: 1px solid var(--border-color);
+    }
+
+    .groups-table td {
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+    }
+
+    .groups-table tr:hover {
+      background: rgba(0, 224, 255, 0.05);
+    }
+
+    .groups-table td:last-child {
+      max-width: 600px;
+      word-wrap: break-word;
+      white-space: normal;
+    }
   </style>
 </head>
 <body>
@@ -1073,8 +1112,63 @@
 
     <!-- Fuel Effect Panel -->
     <div id="fuel-effect-panel" class="content-panel">
-      <h2>Fuel Effect Panel</h2>
-      <p>Fuel effect content will go here...</p>
+      <div style="display: flex; justify-content: center; margin-bottom: 16px;">
+        <div style="width: 60%;">
+          <div id="fuelEffectChartContainer" style="width: 100%; height: 400px; display: none;"></div>
+          <div id="fuelEffectCoefficientsContainer" style="display: none; padding: 12px 16px; background: rgba(0, 224, 255, 0.03); border-radius: 8px; border: 1px solid var(--border-color); margin-top: 8px;">
+            <div style="font-size: 11px; font-weight: 600; color: var(--accent-color); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Linear Fit Coefficients (y = mx)</div>
+            <div id="fuelEffectCoefficientsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="lap-time-filters">
+        <div class="filter-panel">
+          <div class="filters-title">Lap Filters</div>
+          <div class="filters-grid">
+            <div class="filter-item">
+              <div class="filter-label">Laps to Discard at Start</div>
+              <input type="number" id="fuelEffectFilterMinLap" value="1" min="0">
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Laps to Discard at End</div>
+              <input type="number" id="fuelEffectFilterEndLaps" value="1" min="0">
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Min Distance to Car Ahead</div>
+              <input type="number" id="fuelEffectFilterMinDist" value="3" min="0" step="0.1">
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-panel" style="grid-column: span 2;">
+          <div class="filters-title">Include</div>
+          <div class="exclude-checkboxes">
+            <div class="checkbox-group">
+              <input type="checkbox" id="fuelEffectFilterIncludeLapped" checked>
+              <label for="fuelEffectFilterIncludeLapped">Lapped</label>
+            </div>
+            <div class="checkbox-group">
+              <input type="checkbox" id="fuelEffectFilterIncludeRetired" checked>
+              <label for="fuelEffectFilterIncludeRetired">Retired</label>
+            </div>
+            <div class="checkbox-group">
+              <input type="checkbox" id="fuelEffectFilterRainfall">
+              <label for="fuelEffectFilterRainfall">Rainfall</label>
+            </div>
+            <div class="checkbox-group">
+              <input type="checkbox" id="fuelEffectFilterSafetyCar">
+              <label for="fuelEffectFilterSafetyCar">Safety Car</label>
+            </div>
+            <div class="checkbox-group">
+              <input type="checkbox" id="fuelEffectFilterPitLaps">
+              <label for="fuelEffectFilterPitLaps">Pit Laps</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="fuelEffectGroupsTableContainer"></div>
     </div>
 
   </div>
@@ -1242,6 +1336,8 @@
           break;
         case 'fuel-effect':
           // Initialize fuel effect panel
+          const filteredFuelEffectRows = applyFuelEffectFilters(sessionData);
+          displayFuelEffectGroupsTable(filteredFuelEffectRows);
           break;
       }
     }
@@ -2934,97 +3030,161 @@
       // Laps to Discard at Start
       const filterMinLap = document.getElementById('filterMinLap');
       const tyreDegFilterMinLap = document.getElementById('tyreDegFilterMinLap');
+      const fuelEffectFilterMinLap = document.getElementById('fuelEffectFilterMinLap');
 
       filterMinLap.addEventListener('input', function() {
         tyreDegFilterMinLap.value = this.value;
+        fuelEffectFilterMinLap.value = this.value;
       });
 
       tyreDegFilterMinLap.addEventListener('input', function() {
         filterMinLap.value = this.value;
+        fuelEffectFilterMinLap.value = this.value;
+      });
+
+      fuelEffectFilterMinLap.addEventListener('input', function() {
+        filterMinLap.value = this.value;
+        tyreDegFilterMinLap.value = this.value;
       });
 
       // Laps to Discard at End
       const filterEndLaps = document.getElementById('filterEndLaps');
       const tyreDegFilterEndLaps = document.getElementById('tyreDegFilterEndLaps');
+      const fuelEffectFilterEndLaps = document.getElementById('fuelEffectFilterEndLaps');
 
       filterEndLaps.addEventListener('input', function() {
         tyreDegFilterEndLaps.value = this.value;
+        fuelEffectFilterEndLaps.value = this.value;
       });
 
       tyreDegFilterEndLaps.addEventListener('input', function() {
         filterEndLaps.value = this.value;
+        fuelEffectFilterEndLaps.value = this.value;
+      });
+
+      fuelEffectFilterEndLaps.addEventListener('input', function() {
+        filterEndLaps.value = this.value;
+        tyreDegFilterEndLaps.value = this.value;
       });
 
       // Min Distance to Car Ahead
       const filterMinDist = document.getElementById('filterMinDist');
       const tyreDegFilterMinDist = document.getElementById('tyreDegFilterMinDist');
+      const fuelEffectFilterMinDist = document.getElementById('fuelEffectFilterMinDist');
 
       filterMinDist.addEventListener('input', function() {
         tyreDegFilterMinDist.value = this.value;
+        fuelEffectFilterMinDist.value = this.value;
       });
 
       tyreDegFilterMinDist.addEventListener('input', function() {
         filterMinDist.value = this.value;
+        fuelEffectFilterMinDist.value = this.value;
+      });
+
+      fuelEffectFilterMinDist.addEventListener('input', function() {
+        filterMinDist.value = this.value;
+        tyreDegFilterMinDist.value = this.value;
       });
 
       // Include Rainfall
       const filterRainfall = document.getElementById('filterRainfall');
       const tyreDegFilterRainfall = document.getElementById('tyreDegFilterRainfall');
+      const fuelEffectFilterRainfall = document.getElementById('fuelEffectFilterRainfall');
 
       filterRainfall.addEventListener('change', function() {
         tyreDegFilterRainfall.checked = this.checked;
+        fuelEffectFilterRainfall.checked = this.checked;
       });
 
       tyreDegFilterRainfall.addEventListener('change', function() {
         filterRainfall.checked = this.checked;
+        fuelEffectFilterRainfall.checked = this.checked;
+      });
+
+      fuelEffectFilterRainfall.addEventListener('change', function() {
+        filterRainfall.checked = this.checked;
+        tyreDegFilterRainfall.checked = this.checked;
       });
 
       // Include Safety Car
       const filterSafetyCar = document.getElementById('filterSafetyCar');
       const tyreDegFilterSafetyCar = document.getElementById('tyreDegFilterSafetyCar');
+      const fuelEffectFilterSafetyCar = document.getElementById('fuelEffectFilterSafetyCar');
 
       filterSafetyCar.addEventListener('change', function() {
         tyreDegFilterSafetyCar.checked = this.checked;
+        fuelEffectFilterSafetyCar.checked = this.checked;
       });
 
       tyreDegFilterSafetyCar.addEventListener('change', function() {
         filterSafetyCar.checked = this.checked;
+        fuelEffectFilterSafetyCar.checked = this.checked;
+      });
+
+      fuelEffectFilterSafetyCar.addEventListener('change', function() {
+        filterSafetyCar.checked = this.checked;
+        tyreDegFilterSafetyCar.checked = this.checked;
       });
 
       // Include Pit Laps
       const filterPitLaps = document.getElementById('filterPitLaps');
       const tyreDegFilterPitLaps = document.getElementById('tyreDegFilterPitLaps');
+      const fuelEffectFilterPitLaps = document.getElementById('fuelEffectFilterPitLaps');
 
       filterPitLaps.addEventListener('change', function() {
         tyreDegFilterPitLaps.checked = this.checked;
+        fuelEffectFilterPitLaps.checked = this.checked;
       });
 
       tyreDegFilterPitLaps.addEventListener('change', function() {
         filterPitLaps.checked = this.checked;
+        fuelEffectFilterPitLaps.checked = this.checked;
+      });
+
+      fuelEffectFilterPitLaps.addEventListener('change', function() {
+        filterPitLaps.checked = this.checked;
+        tyreDegFilterPitLaps.checked = this.checked;
       });
 
       // Include Lapped
       const filterIncludeLapped = document.getElementById('filterIncludeLapped');
       const tyreDegFilterIncludeLapped = document.getElementById('tyreDegFilterIncludeLapped');
+      const fuelEffectFilterIncludeLapped = document.getElementById('fuelEffectFilterIncludeLapped');
 
       filterIncludeLapped.addEventListener('change', function() {
         tyreDegFilterIncludeLapped.checked = this.checked;
+        fuelEffectFilterIncludeLapped.checked = this.checked;
       });
 
       tyreDegFilterIncludeLapped.addEventListener('change', function() {
         filterIncludeLapped.checked = this.checked;
+        fuelEffectFilterIncludeLapped.checked = this.checked;
+      });
+
+      fuelEffectFilterIncludeLapped.addEventListener('change', function() {
+        filterIncludeLapped.checked = this.checked;
+        tyreDegFilterIncludeLapped.checked = this.checked;
       });
 
       // Include Retired
       const filterIncludeRetired = document.getElementById('filterIncludeRetired');
       const tyreDegFilterIncludeRetired = document.getElementById('tyreDegFilterIncludeRetired');
+      const fuelEffectFilterIncludeRetired = document.getElementById('fuelEffectFilterIncludeRetired');
 
       filterIncludeRetired.addEventListener('change', function() {
         tyreDegFilterIncludeRetired.checked = this.checked;
+        fuelEffectFilterIncludeRetired.checked = this.checked;
       });
 
       tyreDegFilterIncludeRetired.addEventListener('change', function() {
         filterIncludeRetired.checked = this.checked;
+        fuelEffectFilterIncludeRetired.checked = this.checked;
+      });
+
+      fuelEffectFilterIncludeRetired.addEventListener('change', function() {
+        filterIncludeRetired.checked = this.checked;
+        tyreDegFilterIncludeRetired.checked = this.checked;
       });
     }
 
@@ -4024,8 +4184,465 @@
       });
     }
 
-    // Fuel Effect Panel
-    // (Will be populated from fuel_effect.html)
+    // ============================================================================
+    // FUEL EFFECT PANEL
+    // ============================================================================
+
+    const fuelEffectChartContainer = document.getElementById('fuelEffectChartContainer');
+    const fuelEffectCoefficientsContainer = document.getElementById('fuelEffectCoefficientsContainer');
+    const fuelEffectCoefficientsGrid = document.getElementById('fuelEffectCoefficientsGrid');
+    const fuelEffectGroupsTableContainer = document.getElementById('fuelEffectGroupsTableContainer');
+    let fuelEffectChart = null; // ECharts instance
+
+    function setupFuelEffectFilterListeners() {
+      document.getElementById('fuelEffectFilterMinLap').addEventListener('input', () => {
+        if (currentSessionData && currentSessionData.length > 0) {
+          const filteredRows = applyFuelEffectFilters(currentSessionData);
+          displayFuelEffectGroupsTable(filteredRows);
+        }
+      });
+
+      document.getElementById('fuelEffectFilterEndLaps').addEventListener('input', () => {
+        if (currentSessionData && currentSessionData.length > 0) {
+          const filteredRows = applyFuelEffectFilters(currentSessionData);
+          displayFuelEffectGroupsTable(filteredRows);
+        }
+      });
+
+      document.getElementById('fuelEffectFilterMinDist').addEventListener('input', () => {
+        if (currentSessionData && currentSessionData.length > 0) {
+          const filteredRows = applyFuelEffectFilters(currentSessionData);
+          displayFuelEffectGroupsTable(filteredRows);
+        }
+      });
+
+      document.getElementById('fuelEffectFilterRainfall').addEventListener('change', () => {
+        if (currentSessionData && currentSessionData.length > 0) {
+          const filteredRows = applyFuelEffectFilters(currentSessionData);
+          displayFuelEffectGroupsTable(filteredRows);
+        }
+      });
+
+      document.getElementById('fuelEffectFilterSafetyCar').addEventListener('change', () => {
+        if (currentSessionData && currentSessionData.length > 0) {
+          const filteredRows = applyFuelEffectFilters(currentSessionData);
+          displayFuelEffectGroupsTable(filteredRows);
+        }
+      });
+
+      document.getElementById('fuelEffectFilterPitLaps').addEventListener('change', () => {
+        if (currentSessionData && currentSessionData.length > 0) {
+          const filteredRows = applyFuelEffectFilters(currentSessionData);
+          displayFuelEffectGroupsTable(filteredRows);
+        }
+      });
+
+      document.getElementById('fuelEffectFilterIncludeLapped').addEventListener('change', () => {
+        if (currentSessionData && currentSessionData.length > 0) {
+          const filteredRows = applyFuelEffectFilters(currentSessionData);
+          displayFuelEffectGroupsTable(filteredRows);
+        }
+      });
+
+      document.getElementById('fuelEffectFilterIncludeRetired').addEventListener('change', () => {
+        if (currentSessionData && currentSessionData.length > 0) {
+          const filteredRows = applyFuelEffectFilters(currentSessionData);
+          displayFuelEffectGroupsTable(filteredRows);
+        }
+      });
+    }
+
+    setupFuelEffectFilterListeners();
+
+    // Handle window resize for fuel effect chart
+    window.addEventListener('resize', () => {
+      if (fuelEffectChart) {
+        fuelEffectChart.resize();
+      }
+    });
+
+    function applyFuelEffectFilters(rows) {
+      const lapsToDiscard = parseInt(document.getElementById('fuelEffectFilterMinLap').value) || 0;
+      const minLap = lapsToDiscard + 1;
+      const endLaps = parseInt(document.getElementById('fuelEffectFilterEndLaps').value) || 0;
+      const minDist = parseFloat(document.getElementById('fuelEffectFilterMinDist').value) || 0;
+      const includeRainfall = document.getElementById('fuelEffectFilterRainfall').checked;
+      const includeSafetyCar = document.getElementById('fuelEffectFilterSafetyCar').checked;
+      const includePitLaps = document.getElementById('fuelEffectFilterPitLaps').checked;
+      const includeLapped = document.getElementById('fuelEffectFilterIncludeLapped').checked;
+      const includeRetired = document.getElementById('fuelEffectFilterIncludeRetired').checked;
+
+      return rows.filter(r => {
+        // Session type filter - only 'R' (Race)
+        const sessionType = String(r.session_type || "").trim();
+        if (sessionType !== 'R') return false;
+
+        // Min lap number
+        const lapNum = parseInt(r.lap_LapNumber);
+        if (isNaN(lapNum) || lapNum < minLap) return false;
+
+        // Max lap number (sched_laps - endLaps)
+        const schedLaps = parseInt(r.sched_laps);
+        if (!isNaN(schedLaps)) {
+          const maxLap = schedLaps - endLaps;
+          if (lapNum > maxLap) return false;
+        }
+
+        // Finish status filters
+        const status = String(r.finish_status ?? "").trim();
+        const plusLapsMatch = status.match(/^\+(\d+)\sLaps$/);
+        const lapsBehind = plusLapsMatch ? Number(plusLapsMatch[1]) : 0;
+        if (lapsBehind > 1) return false; // Always exclude "+2 Laps", "+3 Laps", etc.
+
+        const isLapped = status === "Lapped" || status === "+1 Lap";
+        if (!includeLapped && isLapped) return false;
+
+        const isFinished = status === "Finished" || isLapped;
+        const isRetired = !isFinished;
+        if (!includeRetired && isRetired) return false;
+
+        // Rainfall filter
+        if (!includeRainfall) {
+          const rainfall = String(r.weather_Rainfall || "").trim().toLowerCase();
+          if (rainfall === "true" || rainfall === "1") return false;
+        }
+
+        // Safety car filter
+        if (!includeSafetyCar) {
+          const trackStatus = String(r.lap_TrackStatus || "").trim();
+          if (trackStatus.includes("4") || trackStatus.includes("5") ||
+              trackStatus.includes("6") || trackStatus.includes("7")) {
+            return false;
+          }
+        }
+
+        // Pit laps filter
+        if (!includePitLaps) {
+          const pitIn = String(r.lap_PitInTime || "").trim();
+          const pitOut = String(r.lap_PitOutTime || "").trim();
+          if ((pitIn && pitIn.toLowerCase() !== "na" && pitIn !== "") ||
+              (pitOut && pitOut.toLowerCase() !== "na" && pitOut !== "")) {
+            return false;
+          }
+        }
+
+        // Min distance filter
+        const dist = parseFloat(r.min_dist);
+        if (!isNaN(dist) && dist < minDist) return false;
+
+        return true;
+      });
+    }
+
+    function renderFuelEffectScatterPlot(groups) {
+      if (groups.length === 0) {
+        fuelEffectChartContainer.style.display = 'none';
+        fuelEffectCoefficientsContainer.style.display = 'none';
+        if (fuelEffectChart) {
+          fuelEffectChart.dispose();
+          fuelEffectChart = null;
+        }
+        return;
+      }
+
+      // Show chart container
+      fuelEffectChartContainer.style.display = 'block';
+      fuelEffectCoefficientsContainer.style.display = 'block';
+
+      // Initialize chart if needed
+      if (!fuelEffectChart) {
+        fuelEffectChart = echarts.init(fuelEffectChartContainer);
+      }
+
+      // Prepare data by compound
+      const dataByCompound = new Map();
+
+      groups.forEach(([key, group]) => {
+        const compound = group.compound;
+        if (!dataByCompound.has(compound)) {
+          dataByCompound.set(compound, []);
+        }
+
+        // Calculate incremental differences
+        for (let i = 1; i < group.laps.length; i++) {
+          const lapNumDiff = group.laps[i].lapNumber - group.laps[i - 1].lapNumber;
+          const lapTimeDiff = group.laps[i].lapTime - group.laps[i - 1].lapTime;
+
+          dataByCompound.get(compound).push({
+            value: [lapNumDiff, lapTimeDiff],
+            driver: group.driver,
+            tyreLife: group.tyreLife,
+            lap1Number: group.laps[i - 1].lapNumber,
+            lap1Time: group.laps[i - 1].lapTime,
+            lap2Number: group.laps[i].lapNumber,
+            lap2Time: group.laps[i].lapTime
+          });
+        }
+      });
+
+      // Calculate linear regression (zero intercept) and create series
+      const series = [];
+      const coefficients = new Map();
+
+      dataByCompound.forEach((data, compound) => {
+        const color = getF1TireColor(compound);
+
+        // Add scatter series
+        series.push({
+          name: compound,
+          type: 'scatter',
+          data: data,
+          symbolSize: 6,
+          itemStyle: {
+            color: color,
+            borderColor: color,
+            borderWidth: 0
+          },
+          emphasis: {
+            focus: 'series',
+            itemStyle: {
+              borderWidth: 2,
+              shadowBlur: 10,
+              shadowColor: color
+            }
+          }
+        });
+
+        // Calculate linear regression with zero intercept: y = mx
+        // m = Σ(xy) / Σ(x²)
+        let sumXY = 0;
+        let sumX2 = 0;
+
+        data.forEach(point => {
+          const x = point.value[0];
+          const y = point.value[1];
+          sumXY += x * y;
+          sumX2 += x * x;
+        });
+
+        const slope = sumX2 !== 0 ? sumXY / sumX2 : 0;
+        coefficients.set(compound, slope);
+
+        // Find min and max x values for the line
+        const xValues = data.map(point => point.value[0]);
+        const minX = Math.min(...xValues);
+        const maxX = Math.max(...xValues);
+
+        // Create line data
+        const lineData = [
+          [minX, slope * minX],
+          [maxX, slope * maxX]
+        ];
+
+        // Add line series
+        series.push({
+          name: `${compound} fit`,
+          type: 'line',
+          data: lineData,
+          showSymbol: false,
+          lineStyle: {
+            color: color,
+            width: 2,
+            type: 'dashed'
+          },
+          emphasis: { disabled: true },
+          silent: true,
+          zlevel: -1
+        });
+      });
+
+      // Set chart options
+      fuelEffectChart.setOption({
+        backgroundColor: 'transparent',
+        grid: { left: 60, right: 20, top: 50, bottom: 60 },
+        legend: {
+          show: true,
+          top: 5,
+          textStyle: { color: '#f5f5f5', fontSize: 11 },
+          itemWidth: 12,
+          itemHeight: 12,
+          data: Array.from(dataByCompound.keys()) // Only show compounds, not fit lines
+        },
+        tooltip: {
+          show: true,
+          trigger: 'item',
+          confine: true,
+          borderColor: '#2a2f3a',
+          backgroundColor: 'rgba(26,29,36,0.96)',
+          textStyle: { color: '#e8e8e8' },
+          extraCssText: 'padding:10px 12px;border-radius:10px',
+          formatter: (p) => {
+            const data = p.data;
+            return `
+              <strong>${p.seriesName} - ${data.driver}</strong><br/>
+              Tyre Life: ${data.tyreLife}<br/>
+              <br/>
+              Lap ${data.lap1Number}: ${data.lap1Time.toFixed(3)}s<br/>
+              Lap ${data.lap2Number}: ${data.lap2Time.toFixed(3)}s<br/>
+              <br/>
+              Lap # Diff: ${data.value[0]}<br/>
+              Lap Time Diff: ${data.value[1].toFixed(3)}s
+            `;
+          }
+        },
+        xAxis: {
+          type: 'value',
+          name: 'Lap Number Difference',
+          nameLocation: 'middle',
+          nameGap: 30,
+          nameTextStyle: { color: '#00e0ff', fontSize: 12, fontWeight: 600 },
+          axisLine: { lineStyle: { color: '#9ca3af' } },
+          axisLabel: { color: '#9ca3af' },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 253, 0.1)' } }
+        },
+        yAxis: {
+          type: 'value',
+          name: 'Lap Time Difference (s)',
+          nameLocation: 'middle',
+          nameGap: 45,
+          nameTextStyle: { color: '#00e0ff', fontSize: 12, fontWeight: 600 },
+          axisLine: { lineStyle: { color: '#9ca3af' } },
+          axisLabel: { color: '#9ca3af' },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 253, 0.1)' } }
+        },
+        series: series
+      }, true);
+
+      // Resize chart
+      fuelEffectChart.resize();
+
+      // Display coefficients
+      fuelEffectCoefficientsGrid.innerHTML = '';
+      coefficients.forEach((slope, compound) => {
+        const color = getF1TireColor(compound);
+        const coeffDiv = document.createElement('div');
+        coeffDiv.style.cssText = `
+          font-size: 11px;
+          color: var(--text-color);
+          font-family: 'Courier New', monospace;
+          padding: 6px 10px;
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 6px;
+          border-left: 3px solid ${color};
+        `;
+        coeffDiv.innerHTML = `<strong>${compound}:</strong> m = ${slope.toFixed(6)}`;
+        fuelEffectCoefficientsGrid.appendChild(coeffDiv);
+      });
+    }
+
+    function displayFuelEffectGroupsTable(rows) {
+      if (!rows.length) {
+        fuelEffectGroupsTableContainer.innerHTML = "";
+        fuelEffectChartContainer.style.display = 'none';
+        fuelEffectCoefficientsContainer.style.display = 'none';
+        if (fuelEffectChart) {
+          fuelEffectChart.dispose();
+          fuelEffectChart = null;
+        }
+        return;
+      }
+
+      // Group by driver, compound, and tyre life
+      const groups = new Map();
+
+      rows.forEach(r => {
+        const driver = String(r.lap_Driver || "").trim();
+        const compound = String(r.lap_Compound || "").trim();
+        const tyreLife = String(r.lap_TyreLife || "").trim();
+        const lapNumber = String(r.lap_LapNumber || "").trim();
+        const lapTime = parseFloat(r.lap_LapTime);
+
+        if (!driver || !compound || !tyreLife || !lapNumber || isNaN(lapTime)) {
+          return; // Skip invalid rows
+        }
+
+        const key = `${driver}||${compound}||${tyreLife}`;
+
+        if (!groups.has(key)) {
+          groups.set(key, {
+            driver: driver,
+            compound: compound,
+            tyreLife: parseInt(tyreLife),
+            laps: []
+          });
+        }
+
+        groups.get(key).laps.push({
+          lapNumber: parseInt(lapNumber),
+          lapTime: lapTime
+        });
+      });
+
+      // Filter out groups with only one lap
+      const filteredGroups = Array.from(groups.entries()).filter(([key, group]) => {
+        return group.laps.length > 1;
+      });
+
+      // Sort groups by compound, driver, tyre life
+      const sortedGroups = filteredGroups.sort((a, b) => {
+        const [keyA, groupA] = a;
+        const [keyB, groupB] = b;
+
+        if (groupA.compound !== groupB.compound) {
+          return groupA.compound.localeCompare(groupB.compound);
+        }
+
+        if (groupA.driver !== groupB.driver) {
+          return groupA.driver.localeCompare(groupB.driver);
+        }
+
+        return groupA.tyreLife - groupB.tyreLife;
+      });
+
+      // Render scatter plot
+      renderFuelEffectScatterPlot(sortedGroups);
+
+      // Build table
+      let html = `
+        <table class="groups-table">
+          <thead>
+            <tr>
+              <th>Driver</th>
+              <th>Compound</th>
+              <th>Tyre Life</th>
+              <th>Laps (Lap Number: Lap Time)</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+
+      sortedGroups.forEach(([key, group]) => {
+        // Sort laps by lap number
+        group.laps.sort((a, b) => a.lapNumber - b.lapNumber);
+
+        // Format laps as "lapNum: lapTime, lapNum: lapTime, ..."
+        const lapsText = group.laps.map(lap =>
+          `${lap.lapNumber}: ${lap.lapTime.toFixed(3)}s`
+        ).join(', ');
+
+        html += `
+          <tr>
+            <td>${escapeHtml(group.driver)}</td>
+            <td>${escapeHtml(group.compound)}</td>
+            <td>${group.tyreLife}</td>
+            <td>${escapeHtml(lapsText)}</td>
+          </tr>
+        `;
+      });
+
+      html += `
+          </tbody>
+        </table>
+      `;
+
+      fuelEffectGroupsTableContainer.innerHTML = html;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
 
     // ============================================================================
     // INITIALIZATION
