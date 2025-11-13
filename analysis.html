@@ -977,9 +977,15 @@
 
     <!-- Tyre Degradation Panel -->
     <div id="tyre-deg-panel" class="content-panel">
-      <div id="tyreDegTyreChoicesDisplay" class="tyre-choices-display" style="display: none;">
-        <div class="tyre-choices-label">Tyre Choices:</div>
-        <div id="tyreDegTyreChoicesText"></div>
+      <div style="display: flex; gap: 16px; margin-bottom: 16px;">
+        <div id="tyreDegTyreChoicesDisplay" class="tyre-choices-display" style="display: none; flex: 1;">
+          <div class="tyre-choices-label">Tyre Choices:</div>
+          <div id="tyreDegTyreChoicesText"></div>
+        </div>
+        <div id="tyreDegAvgDegDisplay" class="tyre-choices-display" style="display: none; flex: 1;">
+          <div class="tyre-choices-label">Average Deg:</div>
+          <div id="tyreDegAvgDegText"></div>
+        </div>
       </div>
 
       <div id="tyreDegChartsWrapper" class="tyre-deg-charts-wrapper" style="display: none;">
@@ -2808,6 +2814,8 @@
     // Tyre Degradation Panel
     const tyreDegTyreChoicesDisplay = document.getElementById('tyreDegTyreChoicesDisplay');
     const tyreDegTyreChoicesText = document.getElementById('tyreDegTyreChoicesText');
+    const tyreDegAvgDegDisplay = document.getElementById('tyreDegAvgDegDisplay');
+    const tyreDegAvgDegText = document.getElementById('tyreDegAvgDegText');
     const tyreDegChartsWrapper = document.getElementById('tyreDegChartsWrapper');
     const tyreDegScatterChart = document.getElementById('tyreDegScatterChart');
     const tyreDegLapTimeChart = document.getElementById('tyreDegLapTimeChart');
@@ -3489,6 +3497,7 @@
       if (tyreDegSelectedStints.size === 0) {
         tyreDegScatterChartInstance.clear();
         tyreDegEquationsSection.style.display = 'none';
+        tyreDegAvgDegDisplay.style.display = 'none';
         return;
       }
 
@@ -3497,6 +3506,7 @@
       // Prepare data grouped by compound - only for selected stints
       const datasets = new Map();
       const equations = new Map();
+      const compoundDegValues = new Map(); // Track deg values for averaging
 
       tyreDegSelectedStints.forEach(key => {
         const group = tyreDegFilteredGroups.get(key);
@@ -3518,6 +3528,7 @@
           if (!isNaN(paceAdj) && !isNaN(degAdj)) {
             if (!datasets.has(compound)) {
               datasets.set(compound, []);
+              compoundDegValues.set(compound, []);
             }
 
             datasets.get(compound).push({
@@ -3525,9 +3536,26 @@
               label: `${group.lap_Driver} - ${group.event}`,
               stintKey: key
             });
+
+            // Collect deg values for averaging
+            compoundDegValues.get(compound).push(degAdj);
           }
         }
       });
+
+      // Calculate and display average deg for each compound
+      if (compoundDegValues.size > 0) {
+        const avgDegParts = [];
+        compoundDegValues.forEach((degValues, compound) => {
+          const avgDeg = degValues.reduce((sum, val) => sum + val, 0) / degValues.length;
+          const color = getF1TireColor(compound);
+          avgDegParts.push(`<span style="color: ${color}; font-weight: 600;">${compound}: ${avgDeg.toFixed(4)}s/lap</span>`);
+        });
+        tyreDegAvgDegText.innerHTML = avgDegParts.join(' &nbsp;&nbsp;|&nbsp;&nbsp; ');
+        tyreDegAvgDegDisplay.style.display = 'flex';
+      } else {
+        tyreDegAvgDegDisplay.style.display = 'none';
+      }
 
       // Create series for scatter plot and build mapping
       const series = [];
