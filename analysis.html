@@ -480,6 +480,12 @@
       gap: 8px;
     }
 
+    .filter-item.vertical {
+      flex-direction: column;
+      align-items: stretch;
+      gap: 4px;
+    }
+
     .filter-label {
       font-size: 10px;
       color: var(--muted-color);
@@ -545,6 +551,198 @@
     .lap-time-driver-item label {
       cursor: pointer;
       flex: 1;
+    }
+
+    /* ========================================================================
+       TYRE DEGRADATION PANEL STYLES
+       ======================================================================== */
+
+    .tyre-choices-display {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding: 10px 14px;
+      background: rgba(0, 224, 255, 0.03);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+      font-size: 14px;
+    }
+
+    .tyre-choices-label {
+      font-weight: 600;
+      color: var(--accent-color);
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    #tyreDegTyreChoicesText {
+      color: var(--text-color);
+      font-size: 12px;
+    }
+
+    .tyre-deg-charts-wrapper {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .tyre-deg-chart-container {
+      padding: 20px;
+      background: rgba(0, 224, 255, 0.03);
+      border-radius: var(--radius-lg);
+      border: 1px solid var(--border-color);
+    }
+
+    .chart-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--accent-color);
+      margin-bottom: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    #tyreDegScatterChart, #tyreDegLapTimeChart {
+      width: 100%;
+      height: 400px;
+    }
+
+    .tyre-deg-chart-controls {
+      margin-bottom: 8px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .equations-section {
+      margin-top: 12px;
+      padding: 12px 16px;
+      background: rgba(0, 224, 255, 0.05);
+      border-radius: 12px;
+      border: 1px solid rgba(148, 163, 253, 0.15);
+    }
+
+    .equations-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--accent-color);
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .equations-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 8px;
+    }
+
+    .equation-item {
+      font-size: 11px;
+      color: var(--text-color);
+      font-family: 'Courier New', monospace;
+      padding: 4px 8px;
+      background: rgba(0, 0, 0, 0.3);
+      border-radius: 6px;
+      border-left: 3px solid;
+    }
+
+    .tyre-deg-filters {
+      display: grid;
+      grid-template-columns: 1.5fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    .slider-container {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .slider-value {
+      font-size: 11px;
+      color: var(--accent-color);
+      font-weight: 600;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border-color);
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      cursor: pointer;
+      box-shadow: 0 0 8px var(--accent-soft);
+    }
+
+    input[type="range"]::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 0 8px var(--accent-soft);
+    }
+
+    .stint-checkbox {
+      accent-color: var(--accent-color);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+
+    #tyreDegStintsTable {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+      margin-top: 16px;
+    }
+
+    #tyreDegStintsTable th {
+      background: rgba(0, 224, 255, 0.1);
+      color: var(--accent-color);
+      padding: 8px 10px;
+      text-align: left;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-size: 10px;
+      border: 1px solid var(--border-color);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    #tyreDegStintsTable th:hover {
+      color: #fff;
+    }
+
+    #tyreDegStintsTable td {
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      color: var(--text-color);
+    }
+
+    #tyreDegStintsTable tr:hover {
+      background: rgba(0, 224, 255, 0.05);
+    }
+
+    .stint-selected {
+      background: rgba(0, 224, 255, 0.15) !important;
     }
   </style>
 </head>
@@ -706,8 +904,92 @@
 
     <!-- Tyre Degradation Panel -->
     <div id="tyre-deg-panel" class="content-panel">
-      <h2>Tyre Degradation Panel</h2>
-      <p>Tyre degradation content will go here...</p>
+      <div id="tyreDegTyreChoicesDisplay" class="tyre-choices-display" style="display: none;">
+        <div class="tyre-choices-label">Tyre Choices:</div>
+        <div id="tyreDegTyreChoicesText"></div>
+      </div>
+
+      <div id="tyreDegChartsWrapper" class="tyre-deg-charts-wrapper" style="display: none;">
+        <div class="tyre-deg-chart-container">
+          <div class="chart-title">Tire Degradation Analysis: Deg vs Pace</div>
+          <div id="tyreDegScatterChart"></div>
+          <div id="tyreDegEquationsSection" class="equations-section" style="display: none;">
+            <div class="equations-title">Best Fit Equations (Deg = m × Pace + b)</div>
+            <div id="tyreDegEquationsGrid" class="equations-grid"></div>
+          </div>
+        </div>
+
+        <div class="tyre-deg-chart-container">
+          <div class="chart-title">Lap Time vs Tyre Age</div>
+          <div class="tyre-deg-chart-controls">
+            <button id="tyreDegFuelAdjustToggle" class="toggle-button active">Fuel Adjusted</button>
+            <span style="font-size: 10px; color: var(--muted-color);" id="tyreDegSelectedStintCount">No stints selected</span>
+          </div>
+          <div id="tyreDegLapTimeChart"></div>
+        </div>
+      </div>
+
+      <div class="tyre-deg-filters">
+        <div class="filter-panel">
+          <div class="filters-grid">
+            <div class="filter-item vertical">
+              <div class="filter-label">Fuel Effect (s/lap)</div>
+              <div class="slider-container">
+                <input type="range" id="tyreDegFuelEffectSlider" min="0" max="0.1" step="0.001" value="0.025">
+                <div class="slider-value" id="tyreDegFuelEffectValue">0.025</div>
+              </div>
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Laps to Discard at Start</div>
+              <input type="number" id="tyreDegFilterMinLap" value="1" min="0">
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Laps to Discard at End</div>
+              <input type="number" id="tyreDegFilterEndLaps" value="1" min="0">
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Min Distance to Car Ahead</div>
+              <input type="number" id="tyreDegFilterMinDist" value="3" min="0" step="0.1">
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Min Rows Per Stint</div>
+              <input type="number" id="tyreDegFilterMinRows" value="5" min="1">
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Min Correlation</div>
+              <input type="number" id="tyreDegFilterMinCorr" value="-1.0" min="-1" max="1" step="0.1">
+            </div>
+          </div>
+        </div>
+
+        <div class="filter-panel">
+          <div class="filters-title">Include</div>
+          <div class="exclude-checkboxes">
+            <div class="checkbox-group">
+              <input type="checkbox" id="tyreDegFilterIncludeLapped" checked>
+              <label for="tyreDegFilterIncludeLapped">Lapped</label>
+            </div>
+            <div class="checkbox-group">
+              <input type="checkbox" id="tyreDegFilterIncludeRetired" checked>
+              <label for="tyreDegFilterIncludeRetired">Retired</label>
+            </div>
+            <div class="checkbox-group">
+              <input type="checkbox" id="tyreDegFilterRainfall">
+              <label for="tyreDegFilterRainfall">Rainfall</label>
+            </div>
+            <div class="checkbox-group">
+              <input type="checkbox" id="tyreDegFilterSafetyCar">
+              <label for="tyreDegFilterSafetyCar">Safety Car</label>
+            </div>
+            <div class="checkbox-group">
+              <input type="checkbox" id="tyreDegFilterPitLaps">
+              <label for="tyreDegFilterPitLaps">Pit Laps</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div id="tyreDegStintsTableContainer"></div>
     </div>
 
     <!-- Fuel Effect Panel -->
@@ -877,6 +1159,31 @@
           break;
         case 'tyre-deg':
           // Initialize tyre deg panel
+          // Clear previous stints tracker for event change detection
+          tyreDegSelectedStints.clear();
+          window.tyreDegPreviousFilteredStints = [];
+
+          // Display tyre choices for the selected event
+          const tyreKey = `${year}||${round}`;
+          const tyres = tyreDegTyreChoices.get(tyreKey);
+          if (tyres && tyres.hard && tyres.medium && tyres.soft) {
+            tyreDegTyreChoicesText.textContent = `${tyres.hard}-${tyres.medium}-${tyres.soft}`;
+            tyreDegTyreChoicesDisplay.style.display = 'flex';
+          } else {
+            tyreDegTyreChoicesDisplay.style.display = 'none';
+          }
+
+          // Set fuel effect from circuit config if available
+          const tyreDegCircuitName = sessionData.length > 0 ? String(sessionData[0].circuit_name || "").trim() : "";
+          if (tyreDegCircuitName && circuitConfig[tyreDegCircuitName] && circuitConfig[tyreDegCircuitName]["Fuel Effect"] !== undefined) {
+            const fuelEffect = circuitConfig[tyreDegCircuitName]["Fuel Effect"];
+            const slider = document.getElementById('tyreDegFuelEffectSlider');
+            const value = document.getElementById('tyreDegFuelEffectValue');
+            slider.value = fuelEffect;
+            value.textContent = fuelEffect.toFixed(3);
+          }
+
+          processTyreDegData(sessionData);
           break;
         case 'fuel-effect':
           // Initialize fuel effect panel
@@ -2417,10 +2724,872 @@
       if (lapTimeChartInstance) {
         lapTimeChartInstance.resize();
       }
+      if (tyreDegScatterChartInstance) {
+        tyreDegScatterChartInstance.resize();
+      }
+      if (tyreDegLapTimeChartInstance) {
+        tyreDegLapTimeChartInstance.resize();
+      }
     });
 
     // Tyre Degradation Panel
-    // (Will be populated from tyre_deg.html)
+    const tyreDegTyreChoicesDisplay = document.getElementById('tyreDegTyreChoicesDisplay');
+    const tyreDegTyreChoicesText = document.getElementById('tyreDegTyreChoicesText');
+    const tyreDegChartsWrapper = document.getElementById('tyreDegChartsWrapper');
+    const tyreDegScatterChart = document.getElementById('tyreDegScatterChart');
+    const tyreDegLapTimeChart = document.getElementById('tyreDegLapTimeChart');
+    const tyreDegEquationsSection = document.getElementById('tyreDegEquationsSection');
+    const tyreDegEquationsGrid = document.getElementById('tyreDegEquationsGrid');
+    const tyreDegFuelAdjustToggle = document.getElementById('tyreDegFuelAdjustToggle');
+    const tyreDegSelectedStintCount = document.getElementById('tyreDegSelectedStintCount');
+    const tyreDegStintsTableContainer = document.getElementById('tyreDegStintsTableContainer');
+
+    let tyreDegScatterChartInstance = null;
+    let tyreDegLapTimeChartInstance = null;
+    let tyreDegSelectedStints = new Set();
+    let tyreDegFilteredGroups = new Map();
+    let tyreDegTyreChoices = new Map();
+
+    // Mappings for synchronized hover between charts
+    let scatterStintToPoint = new Map(); // stint key -> {seriesIndex, dataIndex} in scatter chart
+    let lapTimeStintToSeriesIndex = new Map(); // stint key -> series index in lap time chart
+
+    // Load tyre choices
+    function loadTyreDegTyreChoices() {
+      ParsedDataCache.loadCSV("tyre_choices.csv", {
+        download: true,
+        header: true,
+        skipEmptyLines: true,
+        dynamicTyping: false,
+        complete: function (results) {
+          if (results.data) {
+            results.data.forEach(row => {
+              const year = String(row.year || "").trim();
+              const round = String(row.round_no || "").trim();
+              if (year && round) {
+                const key = `${year}||${round}`;
+                tyreDegTyreChoices.set(key, {
+                  hard: String(row.hard || "").trim(),
+                  medium: String(row.medium || "").trim(),
+                  soft: String(row.soft || "").trim()
+                });
+              }
+            });
+          }
+        },
+        error: function (err) {
+          console.error("Error loading tyre_choices.csv:", err);
+        }
+      });
+    }
+
+    loadTyreDegTyreChoices();
+
+    // Set up filter listeners for tyre deg panel
+    function setupTyreDegFilterListeners() {
+      const filterIds = [
+        'tyreDegFilterMinLap', 'tyreDegFilterEndLaps', 'tyreDegFilterMinDist',
+        'tyreDegFilterMinRows', 'tyreDegFilterMinCorr', 'tyreDegFilterRainfall',
+        'tyreDegFilterSafetyCar', 'tyreDegFilterPitLaps', 'tyreDegFilterIncludeLapped',
+        'tyreDegFilterIncludeRetired'
+      ];
+
+      filterIds.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          const eventType = el.type === 'checkbox' ? 'change' : 'input';
+          el.addEventListener(eventType, () => {
+            if (currentSessionData && currentSessionData.length > 0) {
+              processTyreDegData(currentSessionData);
+            }
+          });
+        }
+      });
+
+      // Fuel effect slider
+      const slider = document.getElementById('tyreDegFuelEffectSlider');
+      const value = document.getElementById('tyreDegFuelEffectValue');
+      slider.addEventListener('input', function() {
+        value.textContent = parseFloat(this.value).toFixed(3);
+        if (currentSessionData && currentSessionData.length > 0) {
+          processTyreDegData(currentSessionData);
+        }
+      });
+
+      // Fuel adjust toggle for lap time chart
+      tyreDegFuelAdjustToggle.addEventListener('click', function() {
+        this.classList.toggle('active');
+        renderTyreDegLapTimeChart();
+      });
+    }
+
+    setupTyreDegFilterListeners();
+
+    function applyTyreDegFilters(rows) {
+      const lapsToDiscard = parseInt(document.getElementById('tyreDegFilterMinLap').value) || 0;
+      const minLap = lapsToDiscard + 1;
+      const endLaps = parseInt(document.getElementById('tyreDegFilterEndLaps').value) || 0;
+      const minDist = parseFloat(document.getElementById('tyreDegFilterMinDist').value) || 0;
+      const includeRainfall = document.getElementById('tyreDegFilterRainfall').checked;
+      const includeSafetyCar = document.getElementById('tyreDegFilterSafetyCar').checked;
+      const includePitLaps = document.getElementById('tyreDegFilterPitLaps').checked;
+      const includeLapped = document.getElementById('tyreDegFilterIncludeLapped').checked;
+      const includeRetired = document.getElementById('tyreDegFilterIncludeRetired').checked;
+
+      return rows.filter(r => {
+        const lapNum = parseInt(r.lap_LapNumber);
+        if (isNaN(lapNum) || lapNum < minLap) return false;
+
+        const schedLaps = parseInt(r.sched_laps);
+        if (!isNaN(schedLaps)) {
+          const maxLap = schedLaps - endLaps;
+          if (lapNum > maxLap) return false;
+        }
+
+        const status = String(r.finish_status ?? "").trim();
+        const plusLapsMatch = status.match(/^\+(\d+)\sLaps$/);
+        const lapsBehind = plusLapsMatch ? Number(plusLapsMatch[1]) : 0;
+        if (lapsBehind > 1) return false;
+
+        const isLapped = status === "Lapped" || status === "+1 Lap";
+        if (!includeLapped && isLapped) return false;
+
+        const isFinished = status === "Finished" || isLapped;
+        const isRetired = !isFinished;
+        if (!includeRetired && isRetired) return false;
+
+        if (!includeRainfall) {
+          const rainfall = String(r.weather_Rainfall || "").trim().toLowerCase();
+          if (rainfall === "true" || rainfall === "1") return false;
+        }
+
+        if (!includeSafetyCar) {
+          const trackStatus = String(r.lap_TrackStatus || "").trim();
+          if (trackStatus.includes("4") || trackStatus.includes("5") ||
+              trackStatus.includes("6") || trackStatus.includes("7")) {
+            return false;
+          }
+        }
+
+        if (!includePitLaps) {
+          const pitIn = String(r.lap_PitInTime || "").trim();
+          const pitOut = String(r.lap_PitOutTime || "").trim();
+          if ((pitIn && pitIn.toLowerCase() !== "na" && pitIn !== "") ||
+              (pitOut && pitOut.toLowerCase() !== "na" && pitOut !== "")) {
+            return false;
+          }
+        }
+
+        const dist = parseFloat(r.min_dist);
+        if (!isNaN(dist) && dist < minDist) return false;
+
+        return true;
+      });
+    }
+
+    function processTyreDegData(sessionData) {
+      const filteredRows = applyTyreDegFilters(sessionData);
+
+      // Group by driver and stint
+      const groups = new Map();
+
+      filteredRows.forEach(r => {
+        const driver = String(r.lap_Driver || "").trim();
+        const stint = String(r.lap_Stint || "").trim();
+        const year = String(r.year || "").trim();
+        const round = String(r.round_no || "").trim();
+        const meeting = String(r.meeting_name || "").trim();
+        const sessionType = String(r.session_type || "").trim();
+
+        if (!driver || !stint) return;
+
+        const key = `${year}||${round}||${meeting}||${driver}||${sessionType}||${stint}`;
+
+        if (!groups.has(key)) {
+          groups.set(key, {
+            lap_Driver: driver,
+            event: `${year} - ${round}. ${meeting}`,
+            session_type: sessionType,
+            lap_Stint: stint,
+            rows: []
+          });
+        }
+
+        groups.get(key).rows.push(r);
+      });
+
+      // Calculate regression for each group
+      const minRows = parseInt(document.getElementById('tyreDegFilterMinRows').value) || 5;
+      const minCorr = parseFloat(document.getElementById('tyreDegFilterMinCorr').value) || -1.0;
+
+      // Track previous stints
+      const previousStints = new Set(window.tyreDegPreviousFilteredStints || []);
+      const isEventChange = previousStints.size === 0 && groups.size > 0;
+
+      tyreDegFilteredGroups = new Map();
+
+      groups.forEach((group, key) => {
+        if (group.rows.length >= minRows) {
+          group.regressionStats = calculateRegressionStats(group.rows);
+
+          if (group.regressionStats.correlation >= minCorr) {
+            // Calculate additional fields
+            const tyreLifeValues = group.rows.map(r => parseFloat(r.lap_TyreLife)).filter(v => !isNaN(v));
+            const lapNumberValues = group.rows.map(r => parseFloat(r.lap_LapNumber)).filter(v => !isNaN(v));
+            const schedLapsValue = parseInt(group.rows[0]?.sched_laps);
+
+            group.minTyreLife = tyreLifeValues.length > 0 ? Math.min(...tyreLifeValues) : 0;
+            const minLapNum = lapNumberValues.length > 0 ? Math.min(...lapNumberValues) : 0;
+            group.lapsToGo = !isNaN(schedLapsValue) && schedLapsValue > 0 ? schedLapsValue - minLapNum : 0;
+            group.compound = group.rows[0]?.lap_Compound || '-';
+            group.finishStatus = group.rows[0]?.finish_status || '-';
+            group.schedLaps = schedLapsValue || '-';
+
+            tyreDegFilteredGroups.set(key, group);
+          }
+        }
+      });
+
+      // Handle stint selection on event change
+      if (isEventChange) {
+        // Event changed - select all stints
+        tyreDegSelectedStints.clear();
+        tyreDegFilteredGroups.forEach((group, key) => {
+          tyreDegSelectedStints.add(key);
+        });
+      } else {
+        // Filter changed - maintain selection only for stints that were in previous view
+        const stintsToKeep = new Set();
+        tyreDegSelectedStints.forEach(key => {
+          if (tyreDegFilteredGroups.has(key) && previousStints.has(key)) {
+            stintsToKeep.add(key);
+          }
+        });
+        tyreDegSelectedStints.clear();
+        stintsToKeep.forEach(key => tyreDegSelectedStints.add(key));
+      }
+
+      // Store current stints for next comparison
+      window.tyreDegPreviousFilteredStints = Array.from(tyreDegFilteredGroups.keys());
+
+      // Render table and charts
+      renderTyreDegStintsTable();
+      renderTyreDegScatterChart();
+      renderTyreDegLapTimeChart();
+    }
+
+    function calculateRegressionStats(rows) {
+      // Simplified regression calculation
+      // In production, would use simple-statistics library
+      const pairs = rows.map(r => {
+        const tyreLife = parseInt(r.lap_TyreLife);
+        const lapTime = parseFloat(r.lap_LapTime);
+        return { x: tyreLife, y: lapTime };
+      }).filter(p => !isNaN(p.x) && !isNaN(p.y));
+
+      if (pairs.length < 2) {
+        return { slope: '-', intercept: '-', correlation: 0, r2: 0 };
+      }
+
+      // Simple linear regression calculation
+      const n = pairs.length;
+      const sumX = pairs.reduce((sum, p) => sum + p.x, 0);
+      const sumY = pairs.reduce((sum, p) => sum + p.y, 0);
+      const sumXY = pairs.reduce((sum, p) => sum + p.x * p.y, 0);
+      const sumX2 = pairs.reduce((sum, p) => sum + p.x * p.x, 0);
+      const sumY2 = pairs.reduce((sum, p) => sum + p.y * p.y, 0);
+
+      const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+      const intercept = (sumY - slope * sumX) / n;
+
+      const correlation = (n * sumXY - sumX * sumY) /
+        Math.sqrt((n * sumX2 - sumX * sumX) * (n * sumY2 - sumY * sumY));
+      const r2 = correlation * correlation;
+
+      return {
+        slope: isFinite(slope) ? slope.toFixed(4) : '-',
+        intercept: isFinite(intercept) ? intercept.toFixed(3) : '-',
+        correlation: isFinite(correlation) ? correlation : 0,
+        r2: isFinite(r2) ? r2.toFixed(3) : '0.000'
+      };
+    }
+
+    function renderTyreDegStintsTable() {
+      if (tyreDegFilteredGroups.size === 0) {
+        tyreDegStintsTableContainer.innerHTML = `
+          <p style="color: var(--muted-color); padding: 20px; text-align: center;">
+            No stints match the current filters
+          </p>
+        `;
+        tyreDegChartsWrapper.style.display = 'none';
+        return;
+      }
+
+      tyreDegChartsWrapper.style.display = 'grid';
+
+      const fuelEffect = parseFloat(document.getElementById('tyreDegFuelEffectSlider').value) || 0;
+
+      const table = document.createElement('table');
+      table.id = 'tyreDegStintsTable';
+
+      // Header row
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      ['Select', 'Event', 'Driver', 'Session Type', 'Stint', 'Lap Count', 'Sched Laps', 'Compound',
+       'Finish Status', 'Min Tyre Life', 'Laps to Go', 'Deg', 'Pace', 'Correlation', 'RMSE'].forEach(text => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      // Body
+      const tbody = document.createElement('tbody');
+
+      // Sort by compound, then driver, then session type, then stint
+      const sortedGroups = Array.from(tyreDegFilteredGroups.entries()).sort((a, b) => {
+        const [keyA, groupA] = a;
+        const [keyB, groupB] = b;
+
+        // Sort by compound first
+        if (groupA.compound !== groupB.compound) {
+          return groupA.compound.localeCompare(groupB.compound);
+        }
+
+        // Then by driver
+        if (groupA.lap_Driver !== groupB.lap_Driver) {
+          return groupA.lap_Driver.localeCompare(groupB.lap_Driver);
+        }
+
+        // Then by session type
+        if (groupA.session_type !== groupB.session_type) {
+          return groupA.session_type.localeCompare(groupB.session_type);
+        }
+
+        // Finally by stint
+        return parseInt(groupA.lap_Stint) - parseInt(groupB.lap_Stint);
+      });
+
+      sortedGroups.forEach(([key, group]) => {
+        const tr = document.createElement('tr');
+        if (tyreDegSelectedStints.has(key)) {
+          tr.classList.add('stint-selected');
+        }
+
+        // Select checkbox
+        const tdCheckbox = document.createElement('td');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'stint-checkbox';
+        checkbox.checked = tyreDegSelectedStints.has(key);
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            tyreDegSelectedStints.add(key);
+            tr.classList.add('stint-selected');
+          } else {
+            tyreDegSelectedStints.delete(key);
+            tr.classList.remove('stint-selected');
+          }
+          renderTyreDegScatterChart();
+          renderTyreDegLapTimeChart();
+        });
+        tdCheckbox.appendChild(checkbox);
+        tr.appendChild(tdCheckbox);
+
+        // Event
+        const tdEvent = document.createElement('td');
+        tdEvent.textContent = group.event;
+        tr.appendChild(tdEvent);
+
+        // Driver
+        const tdDriver = document.createElement('td');
+        tdDriver.textContent = group.lap_Driver;
+        tr.appendChild(tdDriver);
+
+        // Session Type
+        const tdSessionType = document.createElement('td');
+        tdSessionType.textContent = group.session_type;
+        tr.appendChild(tdSessionType);
+
+        // Stint
+        const tdStint = document.createElement('td');
+        tdStint.textContent = group.lap_Stint;
+        tr.appendChild(tdStint);
+
+        // Lap Count
+        const tdLapCount = document.createElement('td');
+        tdLapCount.textContent = group.rows.length;
+        tr.appendChild(tdLapCount);
+
+        // Sched Laps
+        const tdSchedLaps = document.createElement('td');
+        tdSchedLaps.textContent = group.schedLaps;
+        tr.appendChild(tdSchedLaps);
+
+        // Compound
+        const tdCompound = document.createElement('td');
+        tdCompound.textContent = group.compound;
+        tdCompound.style.color = getF1TireColor(group.compound);
+        tdCompound.style.fontWeight = '600';
+        tr.appendChild(tdCompound);
+
+        // Finish Status
+        const tdFinishStatus = document.createElement('td');
+        tdFinishStatus.textContent = group.finishStatus;
+        tr.appendChild(tdFinishStatus);
+
+        // Min Tyre Life
+        const tdMinTyreLife = document.createElement('td');
+        tdMinTyreLife.textContent = group.minTyreLife;
+        tr.appendChild(tdMinTyreLife);
+
+        // Laps to Go
+        const tdLapsToGo = document.createElement('td');
+        tdLapsToGo.textContent = group.lapsToGo;
+        tr.appendChild(tdLapsToGo);
+
+        // Deg (with fuel effect adjustment)
+        const tdDeg = document.createElement('td');
+        const deg = parseFloat(group.regressionStats.slope);
+        const degAdj = deg + fuelEffect;
+        tdDeg.textContent = isNaN(degAdj) ? group.regressionStats.slope : degAdj.toFixed(4);
+        tr.appendChild(tdDeg);
+
+        // Pace (with fuel effect adjustment)
+        const tdPace = document.createElement('td');
+        const pace = parseFloat(group.regressionStats.intercept);
+        const minTyreLife = group.minTyreLife || 0;
+        const lapsToGo = group.lapsToGo || 0;
+        const paceAdj = pace - (minTyreLife + lapsToGo) * fuelEffect;
+        tdPace.textContent = isNaN(paceAdj) ? group.regressionStats.intercept : paceAdj.toFixed(4);
+        tr.appendChild(tdPace);
+
+        // Correlation
+        const tdCorrelation = document.createElement('td');
+        tdCorrelation.textContent = typeof group.regressionStats.correlation === 'number'
+          ? group.regressionStats.correlation.toFixed(3)
+          : group.regressionStats.correlation;
+        tr.appendChild(tdCorrelation);
+
+        // RMSE
+        const tdRMSE = document.createElement('td');
+        tdRMSE.textContent = group.regressionStats.r2;
+        tr.appendChild(tdRMSE);
+
+        // Click row to toggle selection
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('click', (e) => {
+          if (e.target !== checkbox) {
+            checkbox.checked = !checkbox.checked;
+            checkbox.dispatchEvent(new Event('change'));
+          }
+        });
+
+        tbody.appendChild(tr);
+      });
+
+      table.appendChild(tbody);
+      tyreDegStintsTableContainer.innerHTML = '';
+      tyreDegStintsTableContainer.appendChild(table);
+    }
+
+    function renderTyreDegScatterChart() {
+      if (!tyreDegScatterChartInstance) {
+        tyreDegScatterChartInstance = echarts.init(tyreDegScatterChart);
+      }
+
+      if (tyreDegSelectedStints.size === 0) {
+        tyreDegScatterChartInstance.clear();
+        tyreDegEquationsSection.style.display = 'none';
+        return;
+      }
+
+      const fuelEffect = parseFloat(document.getElementById('tyreDegFuelEffectSlider').value) || 0;
+
+      // Prepare data grouped by compound - only for selected stints
+      const datasets = new Map();
+      const equations = new Map();
+
+      tyreDegSelectedStints.forEach(key => {
+        const group = tyreDegFilteredGroups.get(key);
+        if (!group) return;
+
+        const compound = group.compound;
+        const stats = group.regressionStats;
+
+        if (stats && stats.slope !== '-' && stats.intercept !== '-') {
+          const deg = parseFloat(stats.slope);
+          const pace = parseFloat(stats.intercept);
+
+          // Apply fuel effect adjustments
+          const minTyreLife = group.minTyreLife || 0;
+          const lapsToGo = group.lapsToGo || 0;
+          const degAdj = deg + fuelEffect;
+          const paceAdj = pace - (minTyreLife + lapsToGo) * fuelEffect;
+
+          if (!isNaN(paceAdj) && !isNaN(degAdj)) {
+            if (!datasets.has(compound)) {
+              datasets.set(compound, []);
+            }
+
+            datasets.get(compound).push({
+              value: [paceAdj, degAdj],
+              label: `${group.lap_Driver} - ${group.event}`,
+              stintKey: key
+            });
+          }
+        }
+      });
+
+      // Create series for scatter plot and build mapping
+      const series = [];
+      scatterStintToPoint.clear();
+      let seriesIndex = 0;
+
+      datasets.forEach((points, compound) => {
+        const color = getF1TireColor(compound);
+
+        // Store stint key to point mapping
+        points.forEach((p, dataIndex) => {
+          if (p.stintKey) {
+            scatterStintToPoint.set(p.stintKey, { seriesIndex, dataIndex });
+          }
+        });
+
+        series.push({
+          name: compound,
+          type: 'scatter',
+          data: points,
+          symbolSize: 8,
+          itemStyle: {
+            color: color,
+            borderColor: color,
+            borderWidth: 0
+          },
+          emphasis: {
+            focus: 'self',
+            blurScope: 'global',
+            itemStyle: {
+              borderWidth: 3,
+              shadowBlur: 15,
+              shadowColor: color
+            },
+            scale: 1.5
+          },
+          blur: {
+            itemStyle: { opacity: 0.15 }
+          }
+        });
+
+        seriesIndex++;
+
+        // Calculate best fit line for this compound
+        if (points.length >= 2) {
+          const xVals = points.map(p => p.value[0]);
+          const yVals = points.map(p => p.value[1]);
+
+          const n = points.length;
+          const sumX = xVals.reduce((a, b) => a + b, 0);
+          const sumY = yVals.reduce((a, b) => a + b, 0);
+          const sumXY = xVals.reduce((sum, x, i) => sum + x * yVals[i], 0);
+          const sumX2 = xVals.reduce((sum, x) => sum + x * x, 0);
+
+          const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
+          const intercept = (sumY - slope * sumX) / n;
+
+          if (isFinite(slope) && isFinite(intercept)) {
+            equations.set(compound, { slope, intercept, color });
+
+            const minX = Math.min(...xVals);
+            const maxX = Math.max(...xVals);
+            const lineData = [
+              [minX, slope * minX + intercept],
+              [maxX, slope * maxX + intercept]
+            ];
+
+            series.push({
+              name: `${compound} fit`,
+              type: 'line',
+              data: lineData,
+              lineStyle: {
+                color: color,
+                width: 2,
+                type: 'dashed'
+              },
+              symbol: 'none',
+              emphasis: { disabled: true },
+              blur: { lineStyle: { opacity: 0.15 } },
+              silent: true,
+              animation: false,
+              legend: false,  // Hide from legend but keep visible on chart
+              zlevel: -1
+            });
+          }
+        }
+      });
+
+      const option = {
+        backgroundColor: 'transparent',
+        grid: { left: 60, right: 40, top: 40, bottom: 60 },
+        legend: {
+          show: true,
+          top: 10,
+          textStyle: { color: '#8b8b8b', fontSize: 10 }
+        },
+        tooltip: {
+          trigger: 'item',
+          confine: true,
+          borderColor: '#2a2f3a',
+          backgroundColor: 'rgba(26,29,36,0.96)',
+          textStyle: { color: '#e8e8e8' },
+          formatter: (p) => {
+            if (p.data.label) {
+              return `
+                <strong>${p.seriesName}</strong><br/>
+                ${p.data.label}<br/>
+                Pace: ${p.data.value[0].toFixed(3)}s<br/>
+                Deg: ${p.data.value[1].toFixed(4)}s/lap
+              `;
+            }
+            return '';
+          }
+        },
+        xAxis: {
+          type: 'value',
+          name: 'Pace (s)',
+          nameLocation: 'middle',
+          nameGap: 30,
+          nameTextStyle: { color: '#00e0ff', fontSize: 12, fontWeight: 600 },
+          axisLine: { lineStyle: { color: '#9ca3af' } },
+          axisLabel: { color: '#9ca3af', formatter: v => v.toFixed(1) },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 253, 0.1)' } },
+          scale: true
+        },
+        yAxis: {
+          type: 'value',
+          name: 'Degradation (s/lap)',
+          nameLocation: 'middle',
+          nameGap: 45,
+          nameTextStyle: { color: '#00e0ff', fontSize: 12, fontWeight: 600 },
+          axisLine: { lineStyle: { color: '#9ca3af' } },
+          axisLabel: { color: '#9ca3af', formatter: v => v.toFixed(3) },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 253, 0.1)' } }
+        },
+        series: series
+      };
+
+      tyreDegScatterChartInstance.setOption(option, true);
+      tyreDegScatterChartInstance.resize();
+
+      // Remove old event listeners
+      tyreDegScatterChartInstance.off('mouseover');
+      tyreDegScatterChartInstance.off('mouseout');
+
+      // Add cross-chart interaction for scatter -> lap time
+      tyreDegScatterChartInstance.on('mouseover', { seriesType: 'scatter' }, (params) => {
+        if (params.data && params.data.stintKey && tyreDegLapTimeChartInstance) {
+          const stintKey = params.data.stintKey;
+          const lapTimeSeriesIndex = lapTimeStintToSeriesIndex.get(stintKey);
+          if (lapTimeSeriesIndex !== undefined) {
+            tyreDegLapTimeChartInstance.dispatchAction({
+              type: 'highlight',
+              seriesIndex: lapTimeSeriesIndex
+            });
+          }
+        }
+      });
+
+      tyreDegScatterChartInstance.on('mouseout', { seriesType: 'scatter' }, (params) => {
+        if (tyreDegLapTimeChartInstance) {
+          tyreDegLapTimeChartInstance.dispatchAction({ type: 'downplay' });
+        }
+      });
+
+      // Display best fit equations
+      renderTyreDegEquations(equations);
+    }
+
+    function renderTyreDegEquations(equations) {
+      if (equations.size === 0) {
+        tyreDegEquationsSection.style.display = 'none';
+        return;
+      }
+
+      tyreDegEquationsGrid.innerHTML = '';
+      equations.forEach(({ slope, intercept, color }, compound) => {
+        const equation = document.createElement('div');
+        equation.className = 'equation-item';
+        equation.style.borderLeftColor = color;
+        equation.textContent = `${compound}: Deg = ${slope.toFixed(4)} × Pace + ${intercept.toFixed(4)}`;
+        tyreDegEquationsGrid.appendChild(equation);
+      });
+
+      tyreDegEquationsSection.style.display = 'block';
+    }
+
+    function renderTyreDegLapTimeChart() {
+      if (!tyreDegLapTimeChartInstance) {
+        tyreDegLapTimeChartInstance = echarts.init(tyreDegLapTimeChart);
+      }
+
+      if (tyreDegSelectedStints.size === 0) {
+        tyreDegLapTimeChartInstance.clear();
+        tyreDegSelectedStintCount.textContent = 'No stints selected';
+        return;
+      }
+
+      const fuelAdjusted = tyreDegFuelAdjustToggle.classList.contains('active');
+      const fuelEffect = parseFloat(document.getElementById('tyreDegFuelEffectSlider').value) || 0;
+
+      const series = [];
+      lapTimeStintToSeriesIndex.clear();
+      let stintCount = 0;
+      let seriesIndex = 0;
+
+      tyreDegSelectedStints.forEach(key => {
+        const group = tyreDegFilteredGroups.get(key);
+        if (!group) return;
+
+        const compound = group.rows[0]?.lap_Compound || 'UNKNOWN';
+        const driver = group.lap_Driver;
+        const color = getF1TireColor(compound);
+
+        const data = group.rows.map(r => {
+          const tyreLife = parseInt(r.lap_TyreLife);
+          let lapTime = parseFloat(r.lap_LapTime);
+
+          if (fuelAdjusted && !isNaN(r.sched_laps)) {
+            const lapNum = parseInt(r.lap_LapNumber);
+            const schedLaps = parseInt(r.sched_laps);
+            lapTime -= (schedLaps - lapNum) * fuelEffect;
+          }
+
+          return {
+            value: [tyreLife, lapTime],
+            driver: driver,
+            compound: compound
+          };
+        }).filter(p => !isNaN(p.value[0]) && !isNaN(p.value[1]));
+
+        if (data.length > 0) {
+          // Store mapping for this stint
+          lapTimeStintToSeriesIndex.set(key, seriesIndex);
+
+          series.push({
+            name: `${driver} ${compound}`,
+            type: 'line',
+            data: data,
+            showSymbol: true,
+            symbol: 'circle',
+            symbolSize: 4,
+            lineStyle: { width: 2, color: color, opacity: 0.95 },
+            itemStyle: { color: color, borderWidth: 0 },
+            emphasis: {
+              focus: 'series',
+              blurScope: 'global',
+              lineStyle: { width: 3.2 },
+              scale: true
+            },
+            blur: { lineStyle: { opacity: 0.1 } },
+            animation: false,
+            stintKey: key,  // Store stint key for reference
+            triggerLineEvent: true  // Enable line hover events
+          });
+          stintCount++;
+          seriesIndex++;
+        }
+      });
+
+      tyreDegSelectedStintCount.textContent = `${stintCount} stint${stintCount !== 1 ? 's' : ''} selected`;
+
+      const option = {
+        backgroundColor: 'transparent',
+        grid: { left: 60, right: 40, top: 20, bottom: 60 },
+        legend: { show: false },
+        tooltip: {
+          trigger: 'item',
+          confine: true,
+          borderColor: '#2a2f3a',
+          backgroundColor: 'rgba(26,29,36,0.96)',
+          textStyle: { color: '#e8e8e8' },
+          formatter: (p) => {
+            const data = p.data;
+            return `
+              <strong>${data.driver}</strong><br/>
+              Tyre Life: ${data.value[0]} laps<br/>
+              Lap Time: ${data.value[1].toFixed(3)}s<br/>
+              Compound: ${data.compound}
+            `;
+          }
+        },
+        xAxis: {
+          type: 'value',
+          name: 'Tyre Life (laps)',
+          nameLocation: 'middle',
+          nameGap: 30,
+          nameTextStyle: { color: '#00e0ff', fontSize: 12, fontWeight: 600 },
+          axisLine: { lineStyle: { color: '#9ca3af' } },
+          axisLabel: { color: '#9ca3af' },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 253, 0.1)' } },
+          min: 0
+        },
+        yAxis: {
+          type: 'value',
+          name: 'Lap Time (s)',
+          nameLocation: 'middle',
+          nameGap: 45,
+          nameTextStyle: { color: '#00e0ff', fontSize: 12, fontWeight: 600 },
+          axisLine: { lineStyle: { color: '#9ca3af' } },
+          axisLabel: { color: '#9ca3af', formatter: v => v.toFixed(1) },
+          splitLine: { lineStyle: { color: 'rgba(148, 163, 253, 0.1)' } },
+          scale: true
+        },
+        series: series
+      };
+
+      tyreDegLapTimeChartInstance.setOption(option, true);
+      tyreDegLapTimeChartInstance.resize();
+
+      // Remove old event listeners
+      tyreDegLapTimeChartInstance.off('mouseover');
+      tyreDegLapTimeChartInstance.off('mouseout');
+      tyreDegLapTimeChartInstance.off('highlight');
+      tyreDegLapTimeChartInstance.off('downplay');
+
+      // Listen to both mouseover (for line/point hover) and highlight (for programmatic emphasis)
+      const handleLapTimeHover = (params) => {
+        if (params.seriesIndex !== undefined && series[params.seriesIndex]) {
+          const stintKey = series[params.seriesIndex].stintKey;
+          if (stintKey && tyreDegScatterChartInstance) {
+            const scatterPoint = scatterStintToPoint.get(stintKey);
+            if (scatterPoint) {
+              // Highlight single data point on scatter plot
+              tyreDegScatterChartInstance.dispatchAction({
+                type: 'highlight',
+                seriesIndex: scatterPoint.seriesIndex,
+                dataIndex: scatterPoint.dataIndex
+              });
+            }
+          }
+        }
+      };
+
+      tyreDegLapTimeChartInstance.on('mouseover', handleLapTimeHover);
+      tyreDegLapTimeChartInstance.on('highlight', handleLapTimeHover);
+
+      tyreDegLapTimeChartInstance.on('mouseout', (params) => {
+        if (tyreDegScatterChartInstance) {
+          tyreDegScatterChartInstance.dispatchAction({ type: 'downplay' });
+        }
+      });
+
+      tyreDegLapTimeChartInstance.on('downplay', (params) => {
+        if (tyreDegScatterChartInstance) {
+          tyreDegScatterChartInstance.dispatchAction({ type: 'downplay' });
+        }
+      });
+    }
 
     // Fuel Effect Panel
     // (Will be populated from fuel_effect.html)
