@@ -4135,6 +4135,23 @@
         avgRow.appendChild(td);
       });
 
+      // Store compound averages for the copy button
+      const compoundAverages = new Map();
+      ['SOFT', 'MEDIUM', 'HARD'].forEach(compound => {
+        const values = [];
+        lapTimeDriverOrder.forEach(({ driver }) => {
+          if (!selectedDrivers.has(driver)) return;
+          const driverData = driverAverages.get(driver);
+          if (driverData && driverData[compound] !== undefined) {
+            values.push(driverData[compound]);
+          }
+        });
+        if (values.length > 0) {
+          const avg = values.reduce((a, b) => a + b, 0) / values.length;
+          compoundAverages.set(compound, avg);
+        }
+      });
+
       tbody.appendChild(avgRow);
 
       // Driver rows (in finishing order)
@@ -4215,7 +4232,56 @@
       });
 
       table.appendChild(tbody);
+
+      // Create button to copy averages to calculator
+      const buttonContainer = document.createElement('div');
+      buttonContainer.style.cssText = 'margin-bottom: 12px; display: flex; justify-content: flex-start;';
+
+      const copyButton = document.createElement('button');
+      copyButton.textContent = 'Copy Averages to Calculator';
+      copyButton.style.cssText = `
+        padding: 6px 12px;
+        font-size: 11px;
+        background: var(--accent-color);
+        color: var(--bg-color);
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        font-weight: 600;
+      `;
+      copyButton.addEventListener('click', () => {
+        // Update calculator pace inputs
+        const calculatorPaceS = document.getElementById('calculatorPaceS');
+        const calculatorPaceM = document.getElementById('calculatorPaceM');
+        const calculatorPaceH = document.getElementById('calculatorPaceH');
+
+        if (compoundAverages.has('SOFT') && calculatorPaceS) {
+          const value = compoundAverages.get('SOFT');
+          calculatorPaceS.value = value.toFixed(3);
+          saveToState('calculator.paceS', parseFloat(value.toFixed(3)));
+        }
+        if (compoundAverages.has('MEDIUM') && calculatorPaceM) {
+          const value = compoundAverages.get('MEDIUM');
+          calculatorPaceM.value = value.toFixed(3);
+          saveToState('calculator.paceM', parseFloat(value.toFixed(3)));
+        }
+        if (compoundAverages.has('HARD') && calculatorPaceH) {
+          const value = compoundAverages.get('HARD');
+          calculatorPaceH.value = value.toFixed(3);
+          saveToState('calculator.paceH', parseFloat(value.toFixed(3)));
+        }
+
+        // Visual feedback
+        copyButton.textContent = 'Copied!';
+        setTimeout(() => {
+          copyButton.textContent = 'Copy Averages to Calculator';
+        }, 1000);
+      });
+
+      buttonContainer.appendChild(copyButton);
+
       container.innerHTML = '';
+      container.appendChild(buttonContainer);
       container.appendChild(table);
 
       // Attach select all checkbox listener
@@ -7314,13 +7380,22 @@
         document.getElementById("calculatorScLength").value = config['SC Length'] || 5;
 
         // Load compound pace data only (degradation comes from shared paceModel)
-        if (config['Softs']) {
+        // Use state values if available, otherwise use config
+        if (appState.calculator.paceS !== null) {
+          document.getElementById("calculatorPaceS").value = appState.calculator.paceS;
+        } else if (config['Softs']) {
           document.getElementById("calculatorPaceS").value = config['Softs']['Pace'] || 75.0;
         }
-        if (config['Mediums']) {
+
+        if (appState.calculator.paceM !== null) {
+          document.getElementById("calculatorPaceM").value = appState.calculator.paceM;
+        } else if (config['Mediums']) {
           document.getElementById("calculatorPaceM").value = config['Mediums']['Pace'] || 75.5;
         }
-        if (config['Hards']) {
+
+        if (appState.calculator.paceH !== null) {
+          document.getElementById("calculatorPaceH").value = appState.calculator.paceH;
+        } else if (config['Hards']) {
           document.getElementById("calculatorPaceH").value = config['Hards']['Pace'] || 76.5;
         }
 
@@ -7359,9 +7434,11 @@
         // Default values (degradation and fuel effect come from shared paceModel)
         document.getElementById("calculatorPitLoss").value = 21.8;
         document.getElementById("calculatorScLength").value = 5;
-        document.getElementById("calculatorPaceS").value = 75.0;
-        document.getElementById("calculatorPaceM").value = 75.5;
-        document.getElementById("calculatorPaceH").value = 76.5;
+
+        // Use state values if available, otherwise use defaults
+        document.getElementById("calculatorPaceS").value = appState.calculator.paceS !== null ? appState.calculator.paceS : 75.0;
+        document.getElementById("calculatorPaceM").value = appState.calculator.paceM !== null ? appState.calculator.paceM : 75.5;
+        document.getElementById("calculatorPaceH").value = appState.calculator.paceH !== null ? appState.calculator.paceH : 76.5;
 
         // Initialize SC probability table
         const tbody = document.querySelector("#calculatorScProbTable tbody");
