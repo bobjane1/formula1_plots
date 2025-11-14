@@ -4645,6 +4645,41 @@
       });
     }
 
+    // Generic helper for "select all" checkbox behavior in tables
+    function attachSelectAllCheckbox({
+      checkboxId,
+      groupsMap,
+      selectedSet,
+      stateKey,
+      onChange
+    }) {
+      const selectAllCheckbox = document.getElementById(checkboxId);
+      if (!selectAllCheckbox) return;
+
+      // Remove previous listeners by replacing node
+      const newCheckbox = selectAllCheckbox.cloneNode(true);
+      selectAllCheckbox.parentNode.replaceChild(newCheckbox, selectAllCheckbox);
+
+      newCheckbox.addEventListener('change', function() {
+        if (this.checked) {
+          groupsMap.forEach((_, key) => selectedSet.add(key));
+        } else {
+          groupsMap.forEach((_, key) => selectedSet.delete(key));
+        }
+        saveToState(stateKey, Array.from(selectedSet));
+        onChange();
+      });
+
+      // Update checked / indeterminate state
+      let visibleSelectedCount = 0;
+      groupsMap.forEach((_, key) => {
+        if (selectedSet.has(key)) visibleSelectedCount++;
+      });
+
+      newCheckbox.checked = groupsMap.size > 0 && visibleSelectedCount === groupsMap.size;
+      newCheckbox.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < groupsMap.size;
+    }
+
     // Sync common inputs between lap time and tyre deg tabs
     function syncSharedFilters() {
       // Fuel Effect: sync values between lap time (number input) and tyre deg (range slider)
@@ -5236,37 +5271,17 @@
       tyreDegStintsTableContainer.appendChild(table);
 
       // Attach select all checkbox listener
-      const selectAllCheckbox = document.getElementById('tyreDegSelectAllCheckbox');
-      if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-          if (this.checked) {
-            // Select all visible stints
-            tyreDegFilteredGroups.forEach((group, key) => {
-              tyreDegSelectedStints.add(key);
-            });
-          } else {
-            // Deselect all visible stints
-            tyreDegFilteredGroups.forEach((group, key) => {
-              tyreDegSelectedStints.delete(key);
-            });
-          }
-          saveToState('tyreDeg.selectedStints', Array.from(tyreDegSelectedStints));
+      attachSelectAllCheckbox({
+        checkboxId: 'tyreDegSelectAllCheckbox',
+        groupsMap: tyreDegFilteredGroups,
+        selectedSet: tyreDegSelectedStints,
+        stateKey: 'tyreDeg.selectedStints',
+        onChange: () => {
           renderTyreDegStintsTable();
           renderTyreDegScatterChart();
           renderTyreDegLapTimeChart();
-        });
-
-        // Update select all checkbox state
-        let visibleSelectedCount = 0;
-        tyreDegFilteredGroups.forEach((group, key) => {
-          if (tyreDegSelectedStints.has(key)) visibleSelectedCount++;
-        });
-
-        selectAllCheckbox.checked = tyreDegFilteredGroups.size > 0 &&
-          visibleSelectedCount === tyreDegFilteredGroups.size;
-        selectAllCheckbox.indeterminate = visibleSelectedCount > 0 &&
-          visibleSelectedCount < tyreDegFilteredGroups.size;
-      }
+        }
+      });
 
       // Attach clickable header listeners
       attachTyreDegHeaderDropdownListeners();
@@ -6520,35 +6535,15 @@
       fuelEffectGroupsTableContainer.appendChild(table);
 
       // Attach select all checkbox listener
-      const selectAllCheckbox = document.getElementById('fuelEffectSelectAllCheckbox');
-      if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-          if (this.checked) {
-            // Select all visible rows
-            fuelEffectFilteredGroups.forEach((group, key) => {
-              fuelEffectSelectedRows.add(key);
-            });
-          } else {
-            // Deselect all visible rows
-            fuelEffectFilteredGroups.forEach((group, key) => {
-              fuelEffectSelectedRows.delete(key);
-            });
-          }
-          saveToState('fuelEffect.selectedRows', Array.from(fuelEffectSelectedRows));
+      attachSelectAllCheckbox({
+        checkboxId: 'fuelEffectSelectAllCheckbox',
+        groupsMap: fuelEffectFilteredGroups,
+        selectedSet: fuelEffectSelectedRows,
+        stateKey: 'fuelEffect.selectedRows',
+        onChange: () => {
           displayFuelEffectGroupsTable(rows);
-        });
-
-        // Update select all checkbox state
-        let visibleSelectedCount = 0;
-        fuelEffectFilteredGroups.forEach((group, key) => {
-          if (fuelEffectSelectedRows.has(key)) visibleSelectedCount++;
-        });
-
-        selectAllCheckbox.checked = fuelEffectFilteredGroups.size > 0 &&
-          visibleSelectedCount === fuelEffectFilteredGroups.size;
-        selectAllCheckbox.indeterminate = visibleSelectedCount > 0 &&
-          visibleSelectedCount < fuelEffectFilteredGroups.size;
-      }
+        }
+      });
 
       // Attach clickable header listeners
       attachFuelEffectHeaderDropdownListeners();
