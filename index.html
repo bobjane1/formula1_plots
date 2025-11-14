@@ -4548,8 +4548,7 @@
     let lapTimeStintToSeriesIndex = new Map(); // stint key -> series index in lap time chart
 
     // Dropdown menu tracking
-    let activeTyreDegDropdown = null;
-    let activeTyreDegDropdownColumn = null;
+    const tyreDegDropdownState = { dropdown: null, column: null };
 
     // Load tyre choices
     function loadTyreDegTyreChoices() {
@@ -4678,6 +4677,96 @@
 
       newCheckbox.checked = groupsMap.size > 0 && visibleSelectedCount === groupsMap.size;
       newCheckbox.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < groupsMap.size;
+    }
+
+    // Generic helper for header dropdown filtering in tables
+    function attachHeaderDropdowns({
+      tableSelector,
+      groupsMap,
+      getColumnValue,
+      onSelectByValue,
+      activeDropdownRef
+    }) {
+      document.querySelectorAll(`${tableSelector} .clickable-header`).forEach(header => {
+        const newHeader = header.cloneNode(true);
+        header.parentNode.replaceChild(newHeader, header);
+
+        newHeader.addEventListener('click', function(e) {
+          e.stopPropagation();
+          const column = this.dataset.column;
+          const { dropdown, column: activeCol } = activeDropdownRef;
+
+          // Toggle: if clicking same header, close dropdown
+          if (dropdown && activeCol === column) {
+            dropdown.remove();
+            activeDropdownRef.dropdown = null;
+            activeDropdownRef.column = null;
+            return;
+          }
+
+          // Close any existing dropdown
+          if (dropdown) {
+            dropdown.remove();
+            activeDropdownRef.dropdown = null;
+          }
+
+          const table = this.closest('table');
+          const tableRect = table.getBoundingClientRect();
+          const headerRect = this.getBoundingClientRect();
+
+          // Get unique values for this column
+          const uniqueValues = new Set();
+          groupsMap.forEach(group => {
+            const val = getColumnValue(group, column);
+            if (val != null && val !== '') uniqueValues.add(val);
+          });
+
+          // Create dropdown
+          const dd = document.createElement('div');
+          dd.className = 'header-dropdown show';
+          dd.style.left = `${headerRect.left - tableRect.left}px`;
+          dd.style.top = `${headerRect.bottom - tableRect.top}px`;
+
+          // Add options
+          Array.from(uniqueValues).sort().forEach(value => {
+            const option = document.createElement('div');
+            option.className = 'dropdown-option';
+
+            const label = document.createElement('span');
+            label.className = 'dropdown-option-label';
+            label.textContent = value;
+
+            const buttons = document.createElement('div');
+            buttons.className = 'dropdown-option-buttons';
+
+            const selectBtn = document.createElement('button');
+            selectBtn.className = 'dropdown-btn';
+            selectBtn.textContent = 'Select';
+            selectBtn.addEventListener('click', function(ev) {
+              ev.stopPropagation();
+              onSelectByValue(column, value, true);
+            });
+
+            const clearBtn = document.createElement('button');
+            clearBtn.className = 'dropdown-btn';
+            clearBtn.textContent = 'Clear';
+            clearBtn.addEventListener('click', function(ev) {
+              ev.stopPropagation();
+              onSelectByValue(column, value, false);
+            });
+
+            buttons.appendChild(selectBtn);
+            buttons.appendChild(clearBtn);
+            option.appendChild(label);
+            option.appendChild(buttons);
+            dd.appendChild(option);
+          });
+
+          table.appendChild(dd);
+          activeDropdownRef.dropdown = dd;
+          activeDropdownRef.column = column;
+        });
+      });
     }
 
     // Sync common inputs between lap time and tyre deg tabs
@@ -4828,15 +4917,15 @@
 
     // Set up document-level click listener for closing dropdowns
     document.addEventListener('click', function(e) {
-      if (activeTyreDegDropdown && !e.target.closest('.clickable-header') && !e.target.closest('.header-dropdown')) {
-        activeTyreDegDropdown.remove();
-        activeTyreDegDropdown = null;
-        activeTyreDegDropdownColumn = null;
+      if (tyreDegDropdownState.dropdown && !e.target.closest('.clickable-header') && !e.target.closest('.header-dropdown')) {
+        tyreDegDropdownState.dropdown.remove();
+        tyreDegDropdownState.dropdown = null;
+        tyreDegDropdownState.column = null;
       }
-      if (activeFuelEffectDropdown && !e.target.closest('.clickable-header') && !e.target.closest('.header-dropdown')) {
-        activeFuelEffectDropdown.remove();
-        activeFuelEffectDropdown = null;
-        activeFuelEffectDropdownColumn = null;
+      if (fuelEffectDropdownState.dropdown && !e.target.closest('.clickable-header') && !e.target.closest('.header-dropdown')) {
+        fuelEffectDropdownState.dropdown.remove();
+        fuelEffectDropdownState.dropdown = null;
+        fuelEffectDropdownState.column = null;
       }
     });
 
@@ -5288,93 +5377,15 @@
     }
 
     function attachTyreDegHeaderDropdownListeners() {
-      document.querySelectorAll('#tyreDegStintsTable .clickable-header').forEach(header => {
-        const newHeader = header.cloneNode(true);
-        header.parentNode.replaceChild(newHeader, header);
-
-        newHeader.addEventListener('click', function(e) {
-          e.stopPropagation();
-
-          const column = this.dataset.column;
-
-          // Toggle: if clicking same header, close dropdown
-          if (activeTyreDegDropdown && activeTyreDegDropdownColumn === column) {
-            activeTyreDegDropdown.remove();
-            activeTyreDegDropdown = null;
-            activeTyreDegDropdownColumn = null;
-            return;
-          }
-
-          // Close any existing dropdown
-          if (activeTyreDegDropdown) {
-            activeTyreDegDropdown.remove();
-            activeTyreDegDropdown = null;
-          }
-
-          const table = this.closest('table');
-          const tableRect = table.getBoundingClientRect();
-          const headerRect = this.getBoundingClientRect();
-
-          // Get unique values for this column
-          const uniqueValues = new Set();
-          tyreDegFilteredGroups.forEach((group, key) => {
-            if (column === 'driver') {
-              uniqueValues.add(group.lap_Driver);
-            } else if (column === 'session_type') {
-              uniqueValues.add(group.session_type);
-            } else if (column === 'compound') {
-              uniqueValues.add(group.compound);
-            }
-          });
-
-          // Create dropdown
-          const dropdown = document.createElement('div');
-          dropdown.className = 'header-dropdown show';
-
-          // Position relative to the header
-          dropdown.style.left = `${headerRect.left - tableRect.left}px`;
-          dropdown.style.top = `${headerRect.bottom - tableRect.top}px`;
-
-          // Add options
-          Array.from(uniqueValues).sort().forEach(value => {
-            const option = document.createElement('div');
-            option.className = 'dropdown-option';
-
-            const label = document.createElement('span');
-            label.className = 'dropdown-option-label';
-            label.textContent = value;
-
-            const buttons = document.createElement('div');
-            buttons.className = 'dropdown-option-buttons';
-
-            const selectBtn = document.createElement('button');
-            selectBtn.className = 'dropdown-btn';
-            selectBtn.textContent = 'Select';
-            selectBtn.addEventListener('click', function(e) {
-              e.stopPropagation();
-              selectTyreDegByValue(column, value, true);
-            });
-
-            const deselectBtn = document.createElement('button');
-            deselectBtn.className = 'dropdown-btn';
-            deselectBtn.textContent = 'Clear';
-            deselectBtn.addEventListener('click', function(e) {
-              e.stopPropagation();
-              selectTyreDegByValue(column, value, false);
-            });
-
-            buttons.appendChild(selectBtn);
-            buttons.appendChild(deselectBtn);
-
-            option.appendChild(label);
-            option.appendChild(buttons);
-            dropdown.appendChild(option);
-          });
-
-          table.appendChild(dropdown);
-          activeTyreDegDropdown = dropdown;
-          activeTyreDegDropdownColumn = column;
-        });
+      attachHeaderDropdowns({
+        tableSelector: '#tyreDegStintsTable',
+        groupsMap: tyreDegFilteredGroups,
+        getColumnValue: (group, column) =>
+          column === 'driver'       ? group.lap_Driver :
+          column === 'session_type' ? group.session_type :
+          column === 'compound'     ? group.compound : null,
+        onSelectByValue: selectTyreDegByValue,
+        activeDropdownRef: tyreDegDropdownState
       });
     }
 
@@ -5402,10 +5413,10 @@
       saveToState('tyreDeg.selectedStints', Array.from(tyreDegSelectedStints));
 
       // Close the dropdown
-      if (activeTyreDegDropdown) {
-        activeTyreDegDropdown.remove();
-        activeTyreDegDropdown = null;
-        activeTyreDegDropdownColumn = null;
+      if (tyreDegDropdownState.dropdown) {
+        tyreDegDropdownState.dropdown.remove();
+        tyreDegDropdownState.dropdown = null;
+        tyreDegDropdownState.column = null;
       }
 
       // Refresh table and charts
@@ -5909,8 +5920,7 @@
     let fuelEffectSelectedRows = new Set(); // Track which rows are selected for plotting
     let fuelEffectFilteredGroups = new Map(); // Store filtered groups for context menu filtering
     let fuelEffectPreviousFilteredKeys = []; // Remember which keys were visible last time
-    let activeFuelEffectDropdown = null;
-    let activeFuelEffectDropdownColumn = null;
+    const fuelEffectDropdownState = { dropdown: null, column: null };
 
     function setupFuelEffectFilterListeners() {
       document.getElementById('fuelEffectFilterMinLap').addEventListener('input', () => {
@@ -6550,91 +6560,14 @@
     }
 
     function attachFuelEffectHeaderDropdownListeners() {
-      document.querySelectorAll('#fuelEffectGroupsTable .clickable-header').forEach(header => {
-        const newHeader = header.cloneNode(true);
-        header.parentNode.replaceChild(newHeader, header);
-
-        newHeader.addEventListener('click', function(e) {
-          e.stopPropagation();
-
-          const column = this.dataset.column;
-
-          // Toggle: if clicking same header, close dropdown
-          if (activeFuelEffectDropdown && activeFuelEffectDropdownColumn === column) {
-            activeFuelEffectDropdown.remove();
-            activeFuelEffectDropdown = null;
-            activeFuelEffectDropdownColumn = null;
-            return;
-          }
-
-          // Close any existing dropdown
-          if (activeFuelEffectDropdown) {
-            activeFuelEffectDropdown.remove();
-            activeFuelEffectDropdown = null;
-          }
-
-          const table = this.closest('table');
-          const tableRect = table.getBoundingClientRect();
-          const headerRect = this.getBoundingClientRect();
-
-          // Get unique values for this column
-          const uniqueValues = new Set();
-          fuelEffectFilteredGroups.forEach((group, key) => {
-            if (column === 'driver') {
-              uniqueValues.add(group.driver);
-            } else if (column === 'compound') {
-              uniqueValues.add(group.compound);
-            }
-          });
-
-          // Create dropdown
-          const dropdown = document.createElement('div');
-          dropdown.className = 'header-dropdown show';
-
-          // Position relative to the header
-          dropdown.style.left = `${headerRect.left - tableRect.left}px`;
-          dropdown.style.top = `${headerRect.bottom - tableRect.top}px`;
-
-          // Add options
-          Array.from(uniqueValues).sort().forEach(value => {
-            const option = document.createElement('div');
-            option.className = 'dropdown-option';
-
-            const label = document.createElement('span');
-            label.className = 'dropdown-option-label';
-            label.textContent = value;
-
-            const buttons = document.createElement('div');
-            buttons.className = 'dropdown-option-buttons';
-
-            const selectBtn = document.createElement('button');
-            selectBtn.className = 'dropdown-btn';
-            selectBtn.textContent = 'Select';
-            selectBtn.addEventListener('click', function(e) {
-              e.stopPropagation();
-              selectFuelEffectByValue(column, value, true);
-            });
-
-            const deselectBtn = document.createElement('button');
-            deselectBtn.className = 'dropdown-btn';
-            deselectBtn.textContent = 'Clear';
-            deselectBtn.addEventListener('click', function(e) {
-              e.stopPropagation();
-              selectFuelEffectByValue(column, value, false);
-            });
-
-            buttons.appendChild(selectBtn);
-            buttons.appendChild(deselectBtn);
-
-            option.appendChild(label);
-            option.appendChild(buttons);
-            dropdown.appendChild(option);
-          });
-
-          table.appendChild(dropdown);
-          activeFuelEffectDropdown = dropdown;
-          activeFuelEffectDropdownColumn = column;
-        });
+      attachHeaderDropdowns({
+        tableSelector: '#fuelEffectGroupsTable',
+        groupsMap: fuelEffectFilteredGroups,
+        getColumnValue: (group, column) =>
+          column === 'driver'   ? group.driver :
+          column === 'compound' ? group.compound : null,
+        onSelectByValue: selectFuelEffectByValue,
+        activeDropdownRef: fuelEffectDropdownState
       });
     }
 
@@ -6660,10 +6593,10 @@
       saveToState('fuelEffect.selectedRows', Array.from(fuelEffectSelectedRows));
 
       // Close the dropdown
-      if (activeFuelEffectDropdown) {
-        activeFuelEffectDropdown.remove();
-        activeFuelEffectDropdown = null;
-        activeFuelEffectDropdownColumn = null;
+      if (fuelEffectDropdownState.dropdown) {
+        fuelEffectDropdownState.dropdown.remove();
+        fuelEffectDropdownState.dropdown = null;
+        fuelEffectDropdownState.column = null;
       }
 
       // Refresh table and chart
