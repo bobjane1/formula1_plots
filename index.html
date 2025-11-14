@@ -5030,6 +5030,14 @@
             stintsToKeep.add(key);
           }
         });
+
+        // Auto-select any newly visible stints
+        tyreDegFilteredGroups.forEach((group, key) => {
+          if (!previousStints.has(key)) {
+            stintsToKeep.add(key);
+          }
+        });
+        
         tyreDegSelectedStints.clear();
         stintsToKeep.forEach(key => tyreDegSelectedStints.add(key));
       }
