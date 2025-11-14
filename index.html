@@ -1288,10 +1288,6 @@
     <div id="race-trace-panel" class="content-panel">
       <div class="race-trace-controls-row">
         <div class="race-trace-controls-box">
-          <button id="raceTraceBtnAll" type="button">Select all</button>
-          <button id="raceTraceBtnNone" type="button">Clear all</button>
-        </div>
-        <div class="race-trace-controls-box">
           <label class="small" for="raceTraceLapMin">Lap min</label>
           <input id="raceTraceLapMin" type="number" min="1" step="1" value="1" title="Min lap" />
           <label class="small" for="raceTraceLapMax">Lap max</label>
@@ -2651,8 +2647,6 @@
     const raceTraceLapMin = document.getElementById('raceTraceLapMin');
     const raceTraceLapMax = document.getElementById('raceTraceLapMax');
     const raceTraceDriverList = document.getElementById('raceTraceDriverList');
-    const raceTraceBtnAll = document.getElementById('raceTraceBtnAll');
-    const raceTraceBtnNone = document.getElementById('raceTraceBtnNone');
     const raceTraceDebugInfo = document.getElementById('raceTraceDebugInfo');
 
     let raceTraceDriverLines = {};
@@ -2664,19 +2658,6 @@
     let raceTraceSessionType = '';
 
     // Set up race trace event listeners
-    raceTraceBtnAll.addEventListener('click', () => {
-      selectedDrivers.clear();
-      Object.keys(raceTraceDriverLines).forEach(d => selectedDrivers.add(d));
-      updateRaceTraceDriverCheckboxes();
-      renderRaceTraceChart();
-    });
-
-    raceTraceBtnNone.addEventListener('click', () => {
-      selectedDrivers.clear();
-      updateRaceTraceDriverCheckboxes();
-      renderRaceTraceChart();
-    });
-
     raceTraceLapMin.addEventListener('input', function() {
       saveToState('raceTrace.lapMin', parseInt(this.value) || 1);
       renderRaceTraceChart();
@@ -2752,6 +2733,72 @@
 
       const sortedDriverFinishInfo = sortDriversByFinishingOrder(driverFinishInfo);
 
+      // Add "Select All" checkbox at the top
+      const selectAllDiv = document.createElement('div');
+      selectAllDiv.className = 'race-trace-driver';
+      selectAllDiv.style.borderBottom = '1px solid var(--border-color)';
+      selectAllDiv.style.marginBottom = '8px';
+      selectAllDiv.style.paddingBottom = '8px';
+
+      const selectAllCheckbox = document.createElement('input');
+      selectAllCheckbox.type = 'checkbox';
+      selectAllCheckbox.id = 'raceTraceSelectAllDrivers';
+
+      const selectAllLabel = document.createElement('label');
+      selectAllLabel.htmlFor = 'raceTraceSelectAllDrivers';
+      selectAllLabel.textContent = 'Select All';
+      selectAllLabel.style.fontWeight = '600';
+
+      selectAllDiv.appendChild(selectAllCheckbox);
+      selectAllDiv.appendChild(selectAllLabel);
+      raceTraceDriverList.appendChild(selectAllDiv);
+
+      // Helper function to update select all checkbox state
+      const updateSelectAllState = () => {
+        const driverCheckboxes = raceTraceDriverList.querySelectorAll('input[type="checkbox"]:not(#raceTraceSelectAllDrivers)');
+        const checkedCount = Array.from(driverCheckboxes).filter(cb => cb.checked).length;
+
+        if (checkedCount === 0) {
+          selectAllCheckbox.checked = false;
+          selectAllCheckbox.indeterminate = false;
+        } else if (checkedCount === driverCheckboxes.length) {
+          selectAllCheckbox.checked = true;
+          selectAllCheckbox.indeterminate = false;
+        } else {
+          selectAllCheckbox.checked = false;
+          selectAllCheckbox.indeterminate = true;
+        }
+      };
+
+      // Select/deselect all drivers
+      selectAllCheckbox.addEventListener('change', (e) => {
+        const driverCheckboxes = raceTraceDriverList.querySelectorAll('input[type="checkbox"]:not(#raceTraceSelectAllDrivers)');
+        const shouldCheck = e.target.checked;
+
+        driverCheckboxes.forEach(cb => {
+          cb.checked = shouldCheck;
+          const driverId = cb.id.replace('race-trace-driver-', '');
+          if (shouldCheck) {
+            selectedDrivers.add(driverId);
+          } else {
+            selectedDrivers.delete(driverId);
+          }
+        });
+
+        // Save driver selections to state
+        const drivers = Array.from(selectedDrivers);
+        saveToState('raceTrace.selectedDrivers', drivers);
+        saveToState('lapTime.selectedDrivers', drivers);
+        renderRaceTraceChart();
+        // Also update lap time chart if it has data
+        if (lapTimeCurrentGroups.size > 0) {
+          renderLapTimeChart();
+          renderLapTimeSummaryTable();
+        }
+
+        updateSelectAllState();
+      });
+
       sortedDriverFinishInfo.forEach(({ driver }) => {
         const div = document.createElement('div');
         div.className = 'race-trace-driver';
@@ -2780,6 +2827,9 @@
             renderLapTimeChart();
             renderLapTimeSummaryTable();
           }
+
+          // Update select all checkbox state
+          updateSelectAllState();
         });
 
         const label = document.createElement('label');
@@ -2794,6 +2844,9 @@
         div.appendChild(label);
         raceTraceDriverList.appendChild(div);
       });
+
+      // Set initial state of select all checkbox
+      updateSelectAllState();
     }
 
     function updateRaceTraceDriverCheckboxes() {
@@ -2803,6 +2856,24 @@
           checkbox.checked = selectedDrivers.has(driver);
         }
       });
+
+      // Update select all checkbox state
+      const selectAllCheckbox = document.getElementById('raceTraceSelectAllDrivers');
+      if (selectAllCheckbox) {
+        const driverCheckboxes = raceTraceDriverList.querySelectorAll('input[type="checkbox"]:not(#raceTraceSelectAllDrivers)');
+        const checkedCount = Array.from(driverCheckboxes).filter(cb => cb.checked).length;
+
+        if (checkedCount === 0) {
+          selectAllCheckbox.checked = false;
+          selectAllCheckbox.indeterminate = false;
+        } else if (checkedCount === driverCheckboxes.length) {
+          selectAllCheckbox.checked = true;
+          selectAllCheckbox.indeterminate = false;
+        } else {
+          selectAllCheckbox.checked = false;
+          selectAllCheckbox.indeterminate = true;
+        }
+      }
     }
 
     // Shared detection functions that work with any session rows
