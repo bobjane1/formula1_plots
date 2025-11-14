@@ -4038,17 +4038,32 @@
       const thead = document.createElement('thead');
       const headerRow = document.createElement('tr');
 
-      ['Driver', 'SOFT', 'MEDIUM', 'HARD'].forEach((text, index) => {
+      const headers = [
+        { text: 'Select', isCheckbox: true },
+        { text: 'Driver' },
+        { text: 'SOFT' },
+        { text: 'MEDIUM' },
+        { text: 'HARD' }
+      ];
+
+      headers.forEach((header, index) => {
         const th = document.createElement('th');
 
-        if (index > 0) {
-          th.textContent = text;
-          if (text === referenceCompound) {
+        if (header.isCheckbox) {
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.id = 'lapTimeSummarySelectAllCheckbox';
+          checkbox.className = 'stint-checkbox';
+          th.appendChild(checkbox);
+        } else if (index > 1) {
+          // Compound columns
+          th.textContent = header.text;
+          if (header.text === referenceCompound) {
             th.textContent += ' (ref)';
           }
-          th.style.color = getF1TireColor(text);
+          th.style.color = getF1TireColor(header.text);
         } else {
-          th.textContent = text;
+          th.textContent = header.text;
         }
 
         headerRow.appendChild(th);
@@ -4062,6 +4077,10 @@
 
       // Average row at top
       const avgRow = document.createElement('tr');
+
+      // Empty checkbox cell for average row
+      const avgCheckboxCell = document.createElement('td');
+      avgRow.appendChild(avgCheckboxCell);
 
       const avgDriverCell = document.createElement('td');
       avgDriverCell.textContent = 'Average';
@@ -4121,6 +4140,36 @@
 
         const tr = document.createElement('tr');
 
+        // Select checkbox
+        const tdCheckbox = document.createElement('td');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'stint-checkbox';
+        checkbox.checked = selectedDrivers.has(driver);
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            selectedDrivers.add(driver);
+          } else {
+            selectedDrivers.delete(driver);
+          }
+          const drivers = Array.from(selectedDrivers);
+          saveToState('raceTrace.selectedDrivers', drivers);
+          saveToState('lapTime.selectedDrivers', drivers);
+
+          // Update the driver list checkboxes
+          buildLapTimeDriversList(lapTimeDriverOrder.filter(d => lapTimeCurrentGroups.has(d.driver)).map(d => d.driver));
+
+          renderLapTimeChart();
+          renderLapTimeSummaryTable();
+
+          // Also update race trace chart if it has data
+          if (Object.keys(raceTraceDriverLines).length > 0) {
+            renderRaceTraceChart();
+          }
+        });
+        tdCheckbox.appendChild(checkbox);
+        tr.appendChild(tdCheckbox);
+
         // Driver name cell
         const driverCell = document.createElement('td');
         driverCell.textContent = driver;
@@ -4163,6 +4212,48 @@
       table.appendChild(tbody);
       container.innerHTML = '';
       container.appendChild(table);
+
+      // Attach select all checkbox listener
+      const selectAllCheckbox = document.getElementById('lapTimeSummarySelectAllCheckbox');
+      if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+          const driversInTable = lapTimeDriverOrder
+            .filter(({ driver }) => driverAverages.has(driver))
+            .map(({ driver }) => driver);
+
+          if (this.checked) {
+            // Select all drivers in table
+            driversInTable.forEach(driver => selectedDrivers.add(driver));
+          } else {
+            // Deselect all drivers in table
+            driversInTable.forEach(driver => selectedDrivers.delete(driver));
+          }
+
+          const drivers = Array.from(selectedDrivers);
+          saveToState('raceTrace.selectedDrivers', drivers);
+          saveToState('lapTime.selectedDrivers', drivers);
+
+          // Update the driver list checkboxes
+          buildLapTimeDriversList(lapTimeDriverOrder.filter(d => lapTimeCurrentGroups.has(d.driver)).map(d => d.driver));
+
+          renderLapTimeChart();
+          renderLapTimeSummaryTable();
+
+          // Also update race trace chart if it has data
+          if (Object.keys(raceTraceDriverLines).length > 0) {
+            renderRaceTraceChart();
+          }
+        });
+
+        // Set initial state of select all checkbox (checked/unchecked/indeterminate)
+        const driversInTable = lapTimeDriverOrder
+          .filter(({ driver }) => driverAverages.has(driver))
+          .map(({ driver }) => driver);
+        const selectedInTableCount = driversInTable.filter(driver => selectedDrivers.has(driver)).length;
+
+        selectAllCheckbox.checked = selectedInTableCount === driversInTable.length && driversInTable.length > 0;
+        selectAllCheckbox.indeterminate = selectedInTableCount > 0 && selectedInTableCount < driversInTable.length;
+      }
     }
 
     // Handle window resize for lap time chart
