@@ -809,6 +809,10 @@
       position: relative;
     }
 
+    #fuelEffectGroupsTable {
+      position: relative;
+    }
+
     .header-dropdown.show {
       display: block;
     }
@@ -1707,7 +1711,8 @@
 
       // Fuel Effect tab
       fuelEffect: {
-        fuelEffectInput: 0.025
+        fuelEffectInput: 0.025,
+        selectedRows: [] // Array of row keys (data-dependent)
       },
 
       // Calculator tab
@@ -1917,6 +1922,19 @@
             }
           });
           break;
+
+        case 'fuel-effect':
+          // Restore row selections
+          const savedRows = appState.fuelEffect.selectedRows || [];
+          const availableRowKeys = Array.from(fuelEffectFilteredGroups.keys());
+
+          // Only select rows that exist in the current filtered data
+          savedRows.forEach(rowKey => {
+            if (availableRowKeys.includes(rowKey)) {
+              fuelEffectSelectedRows.add(rowKey);
+            }
+          });
+          break;
       }
     }
 
@@ -2121,6 +2139,25 @@
         case 'fuel-effect':
           // Initialize fuel effect panel
           const filteredFuelEffectRows = applyFuelEffectFilters(sessionData);
+
+          // Clear selections before displaying table
+          fuelEffectSelectedRows.clear();
+
+          // Build table with no selections
+          displayFuelEffectGroupsTable(filteredFuelEffectRows);
+
+          // Auto-select all rows if none are selected
+          if (fuelEffectSelectedRows.size === 0) {
+            fuelEffectFilteredGroups.forEach((group, key) => {
+              fuelEffectSelectedRows.add(key);
+            });
+          }
+
+          // Restore row selections from state AFTER auto-selecting
+          // (so fuelEffectFilteredGroups is populated)
+          restoreDataDependentSelections('fuel-effect');
+
+          // Re-render table and chart to reflect selections
           displayFuelEffectGroupsTable(filteredFuelEffectRows);
           break;
         case 'calculator':
@@ -4192,6 +4229,11 @@
         activeTyreDegDropdown = null;
         activeTyreDegDropdownColumn = null;
       }
+      if (activeFuelEffectDropdown && !e.target.closest('.clickable-header') && !e.target.closest('.header-dropdown')) {
+        activeFuelEffectDropdown.remove();
+        activeFuelEffectDropdown = null;
+        activeFuelEffectDropdownColumn = null;
+      }
     });
 
     function applyTyreDegFilters(rows) {
@@ -5209,6 +5251,10 @@
     const fuelEffectCoefficientsGrid = document.getElementById('fuelEffectCoefficientsGrid');
     const fuelEffectGroupsTableContainer = document.getElementById('fuelEffectGroupsTableContainer');
     let fuelEffectChart = null; // ECharts instance
+    let fuelEffectSelectedRows = new Set(); // Track which rows are selected for plotting
+    let fuelEffectFilteredGroups = new Map(); // Store filtered groups for context menu filtering
+    let activeFuelEffectDropdown = null;
+    let activeFuelEffectDropdownColumn = null;
 
     function setupFuelEffectFilterListeners() {
       document.getElementById('fuelEffectFilterMinLap').addEventListener('input', () => {
@@ -5365,7 +5411,12 @@
     }
 
     function renderFuelEffectScatterPlot(groups) {
-      if (groups.length === 0) {
+      // Filter to only selected rows
+      const selectedGroups = groups.filter(([key, group]) => {
+        return fuelEffectSelectedRows.has(key);
+      });
+
+      if (selectedGroups.length === 0) {
         fuelEffectChartContainer.style.display = 'none';
         fuelEffectCoefficientsContainer.style.display = 'none';
         if (fuelEffectChart) {
@@ -5387,7 +5438,7 @@
       // Prepare data by compound
       const dataByCompound = new Map();
 
-      groups.forEach(([key, group]) => {
+      selectedGroups.forEach(([key, group]) => {
         const compound = group.compound;
         if (!dataByCompound.has(compound)) {
           dataByCompound.set(compound, []);
@@ -5569,6 +5620,7 @@
           fuelEffectChart.dispose();
           fuelEffectChart = null;
         }
+        fuelEffectFilteredGroups.clear();
         return;
       }
 
@@ -5624,48 +5676,294 @@
         return groupA.tyreLife - groupB.tyreLife;
       });
 
-      // Render scatter plot
+      // Store filtered groups
+      fuelEffectFilteredGroups.clear();
+      sortedGroups.forEach(([key, group]) => {
+        fuelEffectFilteredGroups.set(key, group);
+      });
+
+      // Remove any selections that are no longer valid
+      const validKeys = new Set(sortedGroups.map(([key]) => key));
+      const staleKeys = [];
+      fuelEffectSelectedRows.forEach(key => {
+        if (!validKeys.has(key)) {
+          staleKeys.push(key);
+        }
+      });
+      staleKeys.forEach(key => fuelEffectSelectedRows.delete(key));
+
+      // Render scatter plot with selected rows
       renderFuelEffectScatterPlot(sortedGroups);
 
-      // Build table
-      let html = `
-        <table class="groups-table">
-          <thead>
-            <tr>
-              <th>Driver</th>
-              <th>Compound</th>
-              <th>Tyre Life</th>
-              <th>Laps (Lap Number: Lap Time)</th>
-            </tr>
-          </thead>
-          <tbody>
-      `;
+      // Build table with DOM
+      const table = document.createElement('table');
+      table.className = 'groups-table';
+      table.id = 'fuelEffectGroupsTable';
+
+      // Header row
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+
+      const headers = [
+        { text: 'Select', isCheckbox: true },
+        { text: 'Driver', clickable: true, column: 'driver' },
+        { text: 'Compound', clickable: true, column: 'compound' },
+        { text: 'Tyre Life' },
+        { text: 'Laps (Lap Number: Lap Time)' }
+      ];
+
+      headers.forEach(header => {
+        const th = document.createElement('th');
+
+        if (header.isCheckbox) {
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.id = 'fuelEffectSelectAllCheckbox';
+          checkbox.className = 'stint-checkbox';
+          th.appendChild(checkbox);
+        } else if (header.clickable) {
+          th.textContent = header.text;
+          th.className = 'clickable-header';
+          th.dataset.column = header.column;
+        } else {
+          th.textContent = header.text;
+        }
+
+        headerRow.appendChild(th);
+      });
+
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      // Body
+      const tbody = document.createElement('tbody');
 
       sortedGroups.forEach(([key, group]) => {
+        const tr = document.createElement('tr');
+        if (fuelEffectSelectedRows.has(key)) {
+          tr.classList.add('stint-selected');
+        }
+
+        // Select checkbox
+        const tdCheckbox = document.createElement('td');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'stint-checkbox';
+        checkbox.checked = fuelEffectSelectedRows.has(key);
+        checkbox.addEventListener('change', () => {
+          if (checkbox.checked) {
+            fuelEffectSelectedRows.add(key);
+            tr.classList.add('stint-selected');
+          } else {
+            fuelEffectSelectedRows.delete(key);
+            tr.classList.remove('stint-selected');
+          }
+          saveToState('fuelEffect.selectedRows', Array.from(fuelEffectSelectedRows));
+          renderFuelEffectScatterPlot(sortedGroups);
+        });
+        tdCheckbox.appendChild(checkbox);
+        tr.appendChild(tdCheckbox);
+
+        // Driver
+        const tdDriver = document.createElement('td');
+        tdDriver.textContent = group.driver;
+        tr.appendChild(tdDriver);
+
+        // Compound
+        const tdCompound = document.createElement('td');
+        tdCompound.textContent = group.compound;
+        tdCompound.style.color = getF1TireColor(group.compound);
+        tdCompound.style.fontWeight = '600';
+        tr.appendChild(tdCompound);
+
+        // Tyre Life
+        const tdTyreLife = document.createElement('td');
+        tdTyreLife.textContent = group.tyreLife;
+        tr.appendChild(tdTyreLife);
+
+        // Laps
+        const tdLaps = document.createElement('td');
         // Sort laps by lap number
         group.laps.sort((a, b) => a.lapNumber - b.lapNumber);
-
-        // Format laps as "lapNum: lapTime, lapNum: lapTime, ..."
         const lapsText = group.laps.map(lap =>
           `${lap.lapNumber}: ${lap.lapTime.toFixed(3)}s`
         ).join(', ');
+        tdLaps.textContent = lapsText;
+        tr.appendChild(tdLaps);
 
-        html += `
-          <tr>
-            <td>${escapeHtml(group.driver)}</td>
-            <td>${escapeHtml(group.compound)}</td>
-            <td>${group.tyreLife}</td>
-            <td>${escapeHtml(lapsText)}</td>
-          </tr>
-        `;
+        // Click row to toggle selection
+        tr.style.cursor = 'pointer';
+        tr.addEventListener('click', (e) => {
+          if (e.target !== checkbox) {
+            checkbox.checked = !checkbox.checked;
+            checkbox.dispatchEvent(new Event('change'));
+          }
+        });
+
+        tbody.appendChild(tr);
       });
 
-      html += `
-          </tbody>
-        </table>
-      `;
+      table.appendChild(tbody);
+      fuelEffectGroupsTableContainer.innerHTML = '';
+      fuelEffectGroupsTableContainer.appendChild(table);
 
-      fuelEffectGroupsTableContainer.innerHTML = html;
+      // Attach select all checkbox listener
+      const selectAllCheckbox = document.getElementById('fuelEffectSelectAllCheckbox');
+      if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', function() {
+          if (this.checked) {
+            // Select all visible rows
+            fuelEffectFilteredGroups.forEach((group, key) => {
+              fuelEffectSelectedRows.add(key);
+            });
+          } else {
+            // Deselect all visible rows
+            fuelEffectFilteredGroups.forEach((group, key) => {
+              fuelEffectSelectedRows.delete(key);
+            });
+          }
+          saveToState('fuelEffect.selectedRows', Array.from(fuelEffectSelectedRows));
+          displayFuelEffectGroupsTable(rows);
+        });
+
+        // Update select all checkbox state
+        let visibleSelectedCount = 0;
+        fuelEffectFilteredGroups.forEach((group, key) => {
+          if (fuelEffectSelectedRows.has(key)) visibleSelectedCount++;
+        });
+
+        selectAllCheckbox.checked = fuelEffectFilteredGroups.size > 0 &&
+          visibleSelectedCount === fuelEffectFilteredGroups.size;
+        selectAllCheckbox.indeterminate = visibleSelectedCount > 0 &&
+          visibleSelectedCount < fuelEffectFilteredGroups.size;
+      }
+
+      // Attach clickable header listeners
+      attachFuelEffectHeaderDropdownListeners();
+    }
+
+    function attachFuelEffectHeaderDropdownListeners() {
+      document.querySelectorAll('#fuelEffectGroupsTable .clickable-header').forEach(header => {
+        const newHeader = header.cloneNode(true);
+        header.parentNode.replaceChild(newHeader, header);
+
+        newHeader.addEventListener('click', function(e) {
+          e.stopPropagation();
+
+          const column = this.dataset.column;
+
+          // Toggle: if clicking same header, close dropdown
+          if (activeFuelEffectDropdown && activeFuelEffectDropdownColumn === column) {
+            activeFuelEffectDropdown.remove();
+            activeFuelEffectDropdown = null;
+            activeFuelEffectDropdownColumn = null;
+            return;
+          }
+
+          // Close any existing dropdown
+          if (activeFuelEffectDropdown) {
+            activeFuelEffectDropdown.remove();
+            activeFuelEffectDropdown = null;
+          }
+
+          const table = this.closest('table');
+          const tableRect = table.getBoundingClientRect();
+          const headerRect = this.getBoundingClientRect();
+
+          // Get unique values for this column
+          const uniqueValues = new Set();
+          fuelEffectFilteredGroups.forEach((group, key) => {
+            if (column === 'driver') {
+              uniqueValues.add(group.driver);
+            } else if (column === 'compound') {
+              uniqueValues.add(group.compound);
+            }
+          });
+
+          // Create dropdown
+          const dropdown = document.createElement('div');
+          dropdown.className = 'header-dropdown show';
+
+          // Position relative to the header
+          dropdown.style.left = `${headerRect.left - tableRect.left}px`;
+          dropdown.style.top = `${headerRect.bottom - tableRect.top}px`;
+
+          // Add options
+          Array.from(uniqueValues).sort().forEach(value => {
+            const option = document.createElement('div');
+            option.className = 'dropdown-option';
+
+            const label = document.createElement('span');
+            label.className = 'dropdown-option-label';
+            label.textContent = value;
+
+            const buttons = document.createElement('div');
+            buttons.className = 'dropdown-option-buttons';
+
+            const selectBtn = document.createElement('button');
+            selectBtn.className = 'dropdown-btn';
+            selectBtn.textContent = 'Select';
+            selectBtn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              selectFuelEffectByValue(column, value, true);
+            });
+
+            const deselectBtn = document.createElement('button');
+            deselectBtn.className = 'dropdown-btn';
+            deselectBtn.textContent = 'Clear';
+            deselectBtn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              selectFuelEffectByValue(column, value, false);
+            });
+
+            buttons.appendChild(selectBtn);
+            buttons.appendChild(deselectBtn);
+
+            option.appendChild(label);
+            option.appendChild(buttons);
+            dropdown.appendChild(option);
+          });
+
+          table.appendChild(dropdown);
+          activeFuelEffectDropdown = dropdown;
+          activeFuelEffectDropdownColumn = column;
+        });
+      });
+    }
+
+    function selectFuelEffectByValue(column, value, select) {
+      fuelEffectFilteredGroups.forEach((group, key) => {
+        let matches = false;
+
+        if (column === 'driver' && group.driver === value) {
+          matches = true;
+        } else if (column === 'compound' && group.compound === value) {
+          matches = true;
+        }
+
+        if (matches) {
+          if (select) {
+            fuelEffectSelectedRows.add(key);
+          } else {
+            fuelEffectSelectedRows.delete(key);
+          }
+        }
+      });
+
+      saveToState('fuelEffect.selectedRows', Array.from(fuelEffectSelectedRows));
+
+      // Close the dropdown
+      if (activeFuelEffectDropdown) {
+        activeFuelEffectDropdown.remove();
+        activeFuelEffectDropdown = null;
+        activeFuelEffectDropdownColumn = null;
+      }
+
+      // Refresh table and chart
+      if (currentSessionData && currentSessionData.length > 0) {
+        const filteredRows = applyFuelEffectFilters(currentSessionData);
+        displayFuelEffectGroupsTable(filteredRows);
+      }
     }
 
     function escapeHtml(text) {
