@@ -2323,20 +2323,16 @@
       renderPaceModelInputsFromState();
 
       // Lap time tab toggle buttons
-      const fuelAdjustToggle = document.getElementById('fuelAdjustToggle');
-      const tyreLifeAdjustToggle = document.getElementById('tyreLifeAdjustToggle');
-      if (fuelAdjustToggle) fuelAdjustToggle.classList.toggle('active', appState.lapTime.fuelAdjust);
-      if (tyreLifeAdjustToggle) tyreLifeAdjustToggle.classList.toggle('active', appState.lapTime.tyreLifeAdjust);
+      renderLapTimeToggleInputsFromState();
 
       // Race trace tab
       renderRaceTraceLapInputsFromState();
 
       // Tyre deg tab
-      const tyreDegFuelAdjustToggle = document.getElementById('tyreDegFuelAdjustToggle');
       const tyreDegFuelEffectSlider = document.getElementById('tyreDegFuelEffectSlider');
       const tyreDegFuelEffectValue = document.getElementById('tyreDegFuelEffectValue');
 
-      if (tyreDegFuelAdjustToggle) tyreDegFuelAdjustToggle.classList.toggle('active', appState.tyreDeg.fuelAdjust);
+      renderTyreDegToggleInputsFromState();
       if (tyreDegFuelEffectSlider) {
         tyreDegFuelEffectSlider.value = appState.paceModel.fuelEffect;
         if (tyreDegFuelEffectValue) tyreDegFuelEffectValue.textContent = appState.paceModel.fuelEffect.toFixed(3);
@@ -3188,6 +3184,27 @@ function replaceSelectedDrivers(drivers, options = {}) {
       if (calculatorDegS && !skipSet.has('calculatorDegS')) calculatorDegS.value = appState.paceModel.degSoft;
       if (calculatorDegM && !skipSet.has('calculatorDegM')) calculatorDegM.value = appState.paceModel.degMedium;
       if (calculatorDegH && !skipSet.has('calculatorDegH')) calculatorDegH.value = appState.paceModel.degHard;
+    }
+
+    function renderLapTimeToggleInputsFromState(options = {}) {
+      const skipSet = new Set(options.skip || []);
+      const fuelToggle = document.getElementById('fuelAdjustToggle');
+      const tyreLifeToggle = document.getElementById('tyreLifeAdjustToggle');
+
+      if (fuelToggle && !skipSet.has('fuelAdjustToggle')) {
+        fuelToggle.classList.toggle('active', !!appState.lapTime.fuelAdjust);
+      }
+      if (tyreLifeToggle && !skipSet.has('tyreLifeAdjustToggle')) {
+        tyreLifeToggle.classList.toggle('active', !!appState.lapTime.tyreLifeAdjust);
+      }
+    }
+
+    function renderTyreDegToggleInputsFromState(options = {}) {
+      const skipSet = new Set(options.skip || []);
+      const tyreDegFuelToggle = document.getElementById('tyreDegFuelAdjustToggle');
+      if (tyreDegFuelToggle && !skipSet.has('tyreDegFuelAdjustToggle')) {
+        tyreDegFuelToggle.classList.toggle('active', !!appState.tyreDeg.fuelAdjust);
+      }
     }
 
     function renderTyreDegFilterInputsFromState() {
@@ -4145,8 +4162,7 @@ function replaceSelectedDrivers(drivers, options = {}) {
         // Toggle state in appState first
         const newValue = !appState.lapTime.fuelAdjust;
         saveToState('lapTime.fuelAdjust', newValue);
-        // Sync CSS class with appState
-        this.classList.toggle('active', newValue);
+        renderLapTimeToggleInputsFromState();
         renderLapTimeChart();
         renderLapTimeSummaryTable();
       });
@@ -4155,8 +4171,7 @@ function replaceSelectedDrivers(drivers, options = {}) {
         // Toggle state in appState first
         const newValue = !appState.lapTime.tyreLifeAdjust;
         saveToState('lapTime.tyreLifeAdjust', newValue);
-        // Sync CSS class with appState
-        this.classList.toggle('active', newValue);
+        renderLapTimeToggleInputsFromState();
         renderLapTimeChart();
         renderLapTimeSummaryTable();
       });
@@ -5473,8 +5488,7 @@ function replaceSelectedDrivers(drivers, options = {}) {
         // Toggle state in appState first
         const newValue = !appState.tyreDeg.fuelAdjust;
         saveToState('tyreDeg.fuelAdjust', newValue);
-        // Sync CSS class with appState
-        this.classList.toggle('active', newValue);
+        renderTyreDegToggleInputsFromState();
         renderTyreDegLapTimeChart();
       });
     }
