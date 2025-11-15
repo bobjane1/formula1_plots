@@ -1359,6 +1359,7 @@
       background: rgba(255, 255, 255, 0.02);
       border-radius: var(--radius-lg);
       border: 1px solid var(--border-color);
+      align-items: center;
     }
 
     .track-temp-header h2 {
@@ -1372,7 +1373,7 @@
     }
 
     .track-temp-chart {
-      width: 100%;
+      width: min(880px, 100%);
       height: 420px;
       border-radius: 10px;
       background: rgba(5, 7, 10, 0.8);
@@ -2082,11 +2083,9 @@
     <div id="track-temp-panel" class="content-panel">
       <div class="track-temp-panel">
         <div class="track-temp-header">
-          <h2>Track Temperature</h2>
-          <div class="track-temp-note">Plotted from the mean `weather_TrackTemp` value per lap.</div>
+          <h2>Track Temperature (Race Only)</h2>
         </div>
         <div id="trackTempChart" class="track-temp-chart"></div>
-        <div id="trackTempMessage" class="track-temp-message"></div>
       </div>
     </div>
 
@@ -9146,9 +9145,15 @@ function updateSelectedDrivers(mutator, options = {}) {
       configureCalculatorPanelFromCircuit(circuitName, { isRestoringPermalink });
     }
 
-    function computeTrackTempAverages(sessionData) {
+    function isRaceSession(row) {
+      const sessionType = String(row.session_type || '').trim().toUpperCase();
+      return sessionType === 'R';
+    }
+
+    function buildLapAveragePoints(rows) {
       const lapMap = new Map();
-      sessionData.forEach(row => {
+      rows.forEach(row => {
+        if (!isRaceSession(row)) return;
         const lap = parseInt(row.lap_LapNumber, 10);
         if (!Number.isFinite(lap)) return;
         const temp = parseFloat(row.weather_TrackTemp);
@@ -9167,14 +9172,56 @@ function updateSelectedDrivers(mutator, options = {}) {
         });
     }
 
-    function renderTrackTempChartFromData(points) {
+    function collectCircuitEventSeries(circuitName, excludeEventKey, limit = 4) {
+      if (!circuitName || !allRowsRaw || allRowsRaw.length === 0) return [];
+      const eventMap = new Map();
+      allRowsRaw.forEach(row => {
+        if (!isRaceSession(row)) return;
+        const circuit = String(row.circuit_name || "").trim();
+        if (!circuit || circuit !== circuitName) return;
+        const year = String(row.year || "").trim();
+        const round = String(row.round_no || "").trim();
+        const meeting = String(row.meeting_name || "").trim();
+        if (!year || !round || !meeting) return;
+        const eventKey = `${year}||${round}||${meeting}`;
+        if (eventKey === excludeEventKey) return;
+        if (!eventMap.has(eventKey)) {
+          eventMap.set(eventKey, { year, round, meeting, rows: [] });
+        }
+        eventMap.get(eventKey).rows.push(row);
+      });
+
+      const sortedEvents = Array.from(eventMap.values()).sort((a, b) => {
+        const yearA = parseInt(a.year, 10) || 0;
+        const yearB = parseInt(b.year, 10) || 0;
+        if (yearA !== yearB) return yearB - yearA;
+        const roundA = parseInt(a.round, 10) || 0;
+        const roundB = parseInt(b.round, 10) || 0;
+        return roundB - roundA;
+      });
+
+      const result = [];
+      for (const evt of sortedEvents) {
+        if (result.length >= limit) break;
+        const points = buildLapAveragePoints(evt.rows);
+        if (!points.length) continue;
+        result.push({
+          label: `${evt.year} ${evt.meeting}`,
+          points,
+          yearLabel: evt.year || 'Unknown'
+        });
+      }
+      return result;
+    }
+
+    function renderTrackTempChartFromSeries(seriesList) {
       const chartDom = document.getElementById('trackTempChart');
-      const messageEl = document.getElementById('trackTempMessage');
       if (!chartDom) return;
       if (!trackTempChart) {
         trackTempChart = echarts.init(chartDom);
       }
-      if (!points || points.length === 0) {
+
+      if (!seriesList || seriesList.length === 0) {
         trackTempChart.clear();
         trackTempChart.setOption({
           backgroundColor: 'transparent',
@@ -9189,59 +9236,110 @@ function updateSelectedDrivers(mutator, options = {}) {
         }
         return;
       }
-      if (messageEl) {
-        messageEl.textContent = '';
-      }
-      const laps = points.map(point => point.lap);
-      const temps = points.map(point => +point.temp.toFixed(2));
+
+      const allLaps = seriesList.flatMap(series => series.points.map(point => point.lap));
+      if (!allLaps.length) return;
+      const minLap = Math.min(...allLaps);
+      const maxLap = Math.max(...allLaps);
+      const range = Math.max(1, maxLap - minLap);
+      const labelInterval = Math.max(1, Math.round(range / 6));
+
+      const legendLabels = seriesList.map(series => series.yearLabel || series.label || 'Unknown');
       const option = {
         backgroundColor: 'transparent',
         textStyle: { color: '#e2e8f0' },
         tooltip: {
           trigger: 'axis',
+          axisPointer: { type: 'cross' },
           formatter: params => {
-            const entry = params[0];
-            if (!entry) return '';
-            return `Lap ${entry.axisValue}<br/>${entry.data.toFixed(2)}°C`;
+            if (!params || !params.length) return '';
+            const lines = params.map(param => {
+              const lap = param.data[0];
+              const temp = param.data[1];
+              return `${param.marker} ${param.seriesName}<br/>Lap ${lap}: ${temp.toFixed(2)}°C`;
+            });
+            return lines.join('<br/>');
           }
+        },
+        legend: {
+          data: legendLabels,
+          top: 8,
+          right: 12,
+          textStyle: { color: '#cbd5f5', fontSize: 12 },
+          icon: 'roundRect'
         },
         grid: { left: 60, right: 20, top: 40, bottom: 60 },
         xAxis: {
-          type: 'category',
+          type: 'value',
           name: 'Lap',
-          data: laps,
+          min: Math.max(1, Math.floor(minLap)),
+          max: Math.ceil(maxLap),
+          interval: labelInterval,
           axisLine: { lineStyle: { color: '#94a3b8' } },
-          axisLabel: { color: '#cbd5f5' }
+          axisLabel: { color: '#cbd5f5' },
+          axisTick: { interval: labelInterval },
+          boundaryGap: false
         },
         yAxis: {
           type: 'value',
           name: 'Track Temp (°C)',
+          min: 'dataMin',
+          max: 'dataMax',
           axisLine: { lineStyle: { color: '#94a3b8' } },
           axisLabel: { color: '#cbd5f5' },
           splitLine: { lineStyle: { color: 'rgba(148, 163, 184, 0.3)' } }
         },
-        series: [
-          {
+        series: seriesList.map((series, index) => {
+          const data = series.points.map(point => [point.lap, parseFloat(point.temp.toFixed(2))]);
+          const isPrimary = !!series.primary;
+          return {
+            name: series.yearLabel || series.label || 'Unknown',
             type: 'line',
-            data: temps,
+            data,
             smooth: true,
             symbol: 'circle',
             symbolSize: 6,
-            lineStyle: { width: 3, color: '#00b4ff' },
-            areaStyle: { color: 'rgba(0, 180, 255, 0.2)' }
-          }
-        ]
+            lineStyle: {
+              width: 3,
+              color: isPrimary ? '#00b4ff' : 'rgba(148, 163, 184, 0.8)'
+            },
+            areaStyle: isPrimary ? { color: 'rgba(0, 180, 255, 0.25)' } : undefined,
+            emphasis: { focus: 'series' }
+          };
+        })
       };
+
       trackTempChart.setOption(option, true);
     }
 
     function initializeTrackTempPanel(sessionData) {
       if (!sessionData || sessionData.length === 0) {
-        renderTrackTempChartFromData([]);
+        renderTrackTempChartFromSeries([]);
         return;
       }
-      const points = computeTrackTempAverages(sessionData);
-      renderTrackTempChartFromData(points);
+
+      const circuitName = String(sessionData[0].circuit_name || "").trim();
+      const currentYear = String(sessionData[0].year || "").trim();
+      const currentRound = String(sessionData[0].round_no || "").trim();
+      const currentMeeting = String(sessionData[0].meeting_name || "").trim();
+      const currentEventKey = `${currentYear}||${currentRound}||${currentMeeting}`;
+
+      const seriesList = [];
+      const raceRows = sessionData.filter(isRaceSession);
+      const currentPoints = buildLapAveragePoints(raceRows);
+      if (currentPoints.length) {
+      seriesList.push({
+        label: 'Current session',
+        points: currentPoints,
+        primary: true,
+        yearLabel: currentYear || 'Unknown'
+      });
+      }
+
+      const historySeries = collectCircuitEventSeries(circuitName, currentEventKey, 4);
+      seriesList.push(...historySeries);
+
+      renderTrackTempChartFromSeries(seriesList);
     }
 
     // Set up calculator event listeners
