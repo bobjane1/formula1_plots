@@ -4689,10 +4689,12 @@ function replaceSelectedDrivers(drivers, options = {}) {
 
       const fuelAdjusted = appState.lapTime.fuelAdjust;
       const tyreLifeAdjusted = appState.lapTime.tyreLifeAdjust;
-      const fuelEffect = parseFloat(document.getElementById('fuelEffect').value);
-      const degHard = parseFloat(document.getElementById('degHard').value);
-      const degMedium = parseFloat(document.getElementById('degMedium').value);
-      const degSoft = parseFloat(document.getElementById('degSoft').value);
+      const {
+        fuelEffect,
+        degHard,
+        degMedium,
+        degSoft
+      } = appState.paceModel;
 
       const degradationMap = {
         'HARD': degHard,
@@ -5024,10 +5026,12 @@ function replaceSelectedDrivers(drivers, options = {}) {
       // Get adjustment settings
       const fuelAdjusted = appState.lapTime.fuelAdjust;
       const tyreLifeAdjusted = appState.lapTime.tyreLifeAdjust;
-      const fuelEffect = parseFloat(document.getElementById('fuelEffect').value);
-      const degHard = parseFloat(document.getElementById('degHard').value);
-      const degMedium = parseFloat(document.getElementById('degMedium').value);
-      const degSoft = parseFloat(document.getElementById('degSoft').value);
+      const {
+        fuelEffect,
+        degHard,
+        degMedium,
+        degSoft
+      } = appState.paceModel;
 
       const degradationMap = {
         'HARD': degHard,
