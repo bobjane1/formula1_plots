@@ -1779,7 +1779,6 @@
       // Tyre Deg tab
       tyreDeg: {
         fuelAdjust: true,
-        fuelEffectSlider: 0.025,
         filterMinRows: 5,
         filterMinCorr: -1.0,
         selectedStints: []
@@ -1787,7 +1786,6 @@
 
       // Fuel Effect tab
       fuelEffect: {
-        fuelEffectInput: 0.025,
         selectedRows: []
       },
 
@@ -1855,7 +1853,6 @@
       // Tyre Deg tab
       tyreDeg: {
         fuelAdjust: true,
-        fuelEffectSlider: 0.025,
         filterMinRows: 5,
         filterMinCorr: -1.0,
         selectedStints: new Set() // Selected stint keys (data-dependent)
@@ -1863,7 +1860,6 @@
 
       // Fuel Effect tab
       fuelEffect: {
-        fuelEffectInput: 0.025,
         selectedRows: new Set() // Selected row keys (data-dependent)
       },
 
@@ -2374,15 +2370,11 @@
 
       if (tyreDegFuelAdjustToggle) tyreDegFuelAdjustToggle.classList.toggle('active', appState.tyreDeg.fuelAdjust);
       if (tyreDegFuelEffectSlider) {
-        tyreDegFuelEffectSlider.value = appState.tyreDeg.fuelEffectSlider;
-        if (tyreDegFuelEffectValue) tyreDegFuelEffectValue.textContent = appState.tyreDeg.fuelEffectSlider.toFixed(3);
+        tyreDegFuelEffectSlider.value = appState.paceModel.fuelEffect;
+        if (tyreDegFuelEffectValue) tyreDegFuelEffectValue.textContent = appState.paceModel.fuelEffect.toFixed(3);
       }
       if (tyreDegFilterMinRows) tyreDegFilterMinRows.value = appState.tyreDeg.filterMinRows;
       if (tyreDegFilterMinCorr) tyreDegFilterMinCorr.value = appState.tyreDeg.filterMinCorr;
-
-      // Fuel effect tab
-      const fuelEffectInput = document.getElementById('fuelEffectInput');
-      if (fuelEffectInput) fuelEffectInput.value = appState.fuelEffect.fuelEffectInput;
 
       // Calculator tab
       const calculatorPitLoss = document.getElementById('calculatorPitLoss');
@@ -5309,26 +5301,25 @@
     // Sync common inputs between lap time and tyre deg tabs
     function syncSharedFilters() {
       // Fuel Effect: sync values between lap time (number input) and tyre deg (range slider)
-      const fuelEffectInput = document.getElementById('fuelEffect');
       const tyreDegFuelEffectSlider = document.getElementById('tyreDegFuelEffectSlider');
       const tyreDegFuelEffectValue = document.getElementById('tyreDegFuelEffectValue');
+      const fuelEffectInput = document.getElementById('fuelEffect');
 
-      fuelEffectInput.addEventListener('input', function() {
+      // Note: fuelEffectInput listener is already set up in the lap time panel setup (line ~3897)
+      // We only need to set up the tyre deg slider listener here
+
+      tyreDegFuelEffectSlider.addEventListener('input', function() {
         const value = parseFloat(this.value);
-        // Sync to tyre deg slider (doesn't trigger input event)
-        tyreDegFuelEffectSlider.value = value;
+        // Update tyre deg display
         tyreDegFuelEffectValue.textContent = value.toFixed(3);
+        // Sync to lap time slider (doesn't trigger input event)
+        fuelEffectInput.value = value;
+        const fuelEffectValue = document.getElementById('fuelEffectValue');
+        if (fuelEffectValue) fuelEffectValue.textContent = value.toFixed(3);
         // Sync to calculator tab
         const calculatorFuelEffect = document.getElementById('calculatorFuelEffect');
         if (calculatorFuelEffect) calculatorFuelEffect.value = value;
         saveToState('paceModel.fuelEffect', value);
-      });
-
-      tyreDegFuelEffectSlider.addEventListener('input', function() {
-        const value = parseFloat(this.value);
-        // Sync to lap time input (doesn't trigger input event)
-        fuelEffectInput.value = value.toFixed(3);
-        saveToState('tyreDeg.fuelEffectSlider', value);
       });
 
       // Laps to Discard at Start
