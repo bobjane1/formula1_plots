@@ -891,6 +891,45 @@
       background: rgba(0, 224, 255, 0.2);
     }
 
+    .pit-loss-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+
+    .pit-loss-stat {
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .pit-loss-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+    }
+
+    .pit-loss-table th,
+    .pit-loss-table td {
+      padding: 8px 10px;
+      border: 1px solid var(--border-color);
+      text-align: left;
+    }
+
+    .pit-loss-table th {
+      background: rgba(0, 224, 255, 0.04);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      font-weight: 600;
+    }
+
+    .pit-loss-checkbox {
+      margin-right: 8px;
+    }
+
     .header-dropdown.show {
       display: block;
     }
@@ -1435,6 +1474,7 @@
       <button class="tab-button" data-tab="fuel-effect" data-tooltip="Compares laps for the same driver, compound, and tyre life at different fuel loads to calculate fuel effect. Click 'Select Fuel Effect' to apply the coefficient to other tabs.">Fuel Effect</button>
       <button class="tab-button" data-tab="tyre-deg" data-tooltip="Computes fuel-corrected tyre degradation for each stint, then averages these values by compound. Click 'Select' to apply the degradation figures to other pages.">Tyre Degradation</button>
       <button class="tab-button" data-tab="lap-time" data-tooltip="Shows fuel- and tyre-corrected lap times for each driver by compound. See table at the bottom. If the parameters are set correctly the lap times in the plot should not trend faster or slower. Use 'Copy Averages To Calculator' to apply the to other pages.">Lap Time</button>
+      <button class="tab-button" data-tab="pit-loss" data-tooltip="Displays pit loss estimates by comparing pit laps to the surrounding reference laps.">Pit Loss</button>
       <button class="tab-button" data-tab="calculator" data-tooltip="Calculates the optimal free-air tyre strategy and compares it to other strategies">Calculator</button>
       <span class="status-message" id="statusMessage">Loading...</span>
       <button id="reloadDataBtn" type="button" title="Reload data from server">Reload Data</button>
@@ -1810,6 +1850,18 @@
       <div id="fuelEffectGroupsTableContainer"></div>
     </div>
 
+    <!-- Pit Loss Panel -->
+    <div id="pit-loss-panel" class="content-panel">
+      <div class="pit-loss-header">
+        <div>
+          <div class="pit-loss-stat">Average Pit Loss: <span id="pitLossAverage">—</span> s</div>
+          <div class="pit-loss-stat">Median Pit Loss: <span id="pitLossMedian">—</span> s</div>
+        </div>
+        <button id="copyPitLossAverageBtn" type="button" class="calculator-run-btn" style="padding: 8px 14px; font-size: 12px;">Copy Median to Calculator</button>
+      </div>
+      <div id="pitLossTableContainer"></div>
+    </div>
+
     <!-- Calculator Panel -->
     <div id="calculator-panel" class="content-panel">
       <div class="calculator-layout">
@@ -2038,6 +2090,11 @@
         selectedRows: []
       },
 
+      // Pit Loss tab
+      pitLossTab: {
+        selectedKeys: []
+      },
+
       // Calculator tab
       calculator: {
         numLaps: null,
@@ -2111,6 +2168,11 @@
       // Fuel Effect tab
       fuelEffect: {
         selectedRows: new Set() // Selected row keys (data-dependent)
+      },
+
+      // Pit Loss tab
+      pitLossTab: {
+        selectedKeys: new Set()
       },
 
       // Calculator tab
@@ -2775,6 +2837,22 @@
         overrides.fuelEffect = fuelEffectOverrides;
       }
 
+      // Pit Loss tab
+      const pitLossTabOverrides = {};
+      for (const key in appState.pitLossTab) {
+        if (key === 'selectedKeys') {
+          const keysArray = Array.from(appState.pitLossTab.selectedKeys);
+          if (!deepEqual(keysArray, defaultAppState.pitLossTab.selectedKeys)) {
+            pitLossTabOverrides.selectedKeys = keysArray;
+          }
+        } else if (!deepEqual(appState.pitLossTab[key], defaultAppState.pitLossTab[key])) {
+          pitLossTabOverrides[key] = appState.pitLossTab[key];
+        }
+      }
+      if (Object.keys(pitLossTabOverrides).length > 0) {
+        overrides.pitLossTab = pitLossTabOverrides;
+      }
+
       // Calculator
       const calculatorOverrides = {};
       for (const key in appState.calculator) {
@@ -2914,6 +2992,14 @@
             Object.assign(appState.fuelEffect, merged.fuelEffect);
             if (Array.isArray(merged.fuelEffect.selectedRows)) {
               appState.fuelEffect.selectedRows = new Set(merged.fuelEffect.selectedRows);
+            }
+          }
+
+          // Handle pit loss selections
+          if (merged.pitLossTab) {
+            Object.assign(appState.pitLossTab, merged.pitLossTab);
+            if (Array.isArray(merged.pitLossTab.selectedKeys)) {
+              appState.pitLossTab.selectedKeys = new Set(merged.pitLossTab.selectedKeys);
             }
           }
 
@@ -3187,6 +3273,9 @@
         case 'fuel-effect':
           // Initialize fuel effect panel
           processFuelEffectData(sessionData, { restoreSelections: true });
+          break;
+        case 'pit-loss':
+          processPitLossData(sessionData);
           break;
         case 'calculator':
           // Initialize calculator panel
@@ -6230,6 +6319,223 @@ function updateSelectedDrivers(mutator, options = {}) {
         items: summaryCheckboxItems
       });
       lapTimeSummaryCheckboxManager.render();
+    }
+
+    const pitLossTableContainer = document.getElementById('pitLossTableContainer');
+    const pitLossAverageText = document.getElementById('pitLossAverage');
+    const pitLossMedianText = document.getElementById('pitLossMedian');
+    const copyPitLossAverageBtn = document.getElementById('copyPitLossAverageBtn');
+    let pitLossEvents = [];
+
+    function computePitLossStats() {
+      const selected = pitLossEvents.filter(event => appState.pitLossTab.selectedKeys.has(event.key));
+      const values = selected.map(event => event.pitLoss);
+      if (values.length === 0) {
+        return { average: null, median: null, count: 0 };
+      }
+      const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+      const sorted = values.slice().sort((a, b) => a - b);
+      const mid = Math.floor(sorted.length / 2);
+      const median = sorted.length % 2 === 1
+        ? sorted[mid]
+        : (sorted[mid - 1] + sorted[mid]) / 2;
+      return { average, median, count: values.length };
+    }
+
+    function renderPitLossStats() {
+      const stats = computePitLossStats();
+      if (pitLossAverageText) {
+        pitLossAverageText.textContent = Number.isFinite(stats.average) ? stats.average.toFixed(3) : '—';
+      }
+      if (pitLossMedianText) {
+        pitLossMedianText.textContent = Number.isFinite(stats.median) ? stats.median.toFixed(3) : '—';
+      }
+    }
+
+    function persistPitLossSelection() {
+      saveToState('pitLossTab.selectedKeys', new Set(appState.pitLossTab.selectedKeys));
+    }
+
+    function renderPitLossTable() {
+      if (!pitLossTableContainer) return;
+      if (pitLossEvents.length === 0) {
+        pitLossTableContainer.innerHTML = '<p>No pit-loss events identified for this session.</p>';
+        return;
+      }
+
+      const table = document.createElement('table');
+      table.className = 'pit-loss-table';
+      const thead = document.createElement('thead');
+      const headerRow = document.createElement('tr');
+      ['Select', 'Driver', 'Lap #', 'Pit Loss (s)'].forEach(text => {
+        const th = document.createElement('th');
+        th.textContent = text;
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      const tbody = document.createElement('tbody');
+      pitLossEvents.forEach(event => {
+        const row = document.createElement('tr');
+        const isSelected = appState.pitLossTab.selectedKeys.has(event.key);
+
+        const selectTd = document.createElement('td');
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.className = 'pit-loss-checkbox';
+        checkbox.dataset.key = event.key;
+        checkbox.checked = isSelected;
+        selectTd.appendChild(checkbox);
+        row.appendChild(selectTd);
+
+        const driverTd = document.createElement('td');
+        driverTd.textContent = event.driver;
+        row.appendChild(driverTd);
+
+        const pitTd = document.createElement('td');
+        pitTd.textContent = event.pitInLapNum;
+        row.appendChild(pitTd);
+
+        const lossTd = document.createElement('td');
+        lossTd.textContent = event.pitLoss.toFixed(3);
+        row.appendChild(lossTd);
+
+        row.classList.toggle('selected', isSelected);
+        tbody.appendChild(row);
+      });
+
+      table.appendChild(tbody);
+      pitLossTableContainer.innerHTML = '';
+      pitLossTableContainer.appendChild(table);
+    }
+
+    function updatePitLossSelectionKeys() {
+      const validKeys = new Set(pitLossEvents.map(event => event.key));
+      appState.pitLossTab.selectedKeys.forEach(key => {
+        if (!validKeys.has(key)) {
+          appState.pitLossTab.selectedKeys.delete(key);
+        }
+      });
+      if (appState.pitLossTab.selectedKeys.size === 0) {
+        pitLossEvents.forEach(event => appState.pitLossTab.selectedKeys.add(event.key));
+      }
+      persistPitLossSelection();
+    }
+
+    function processPitLossData(sessionData) {
+      pitLossEvents = [];
+      if (!sessionData || sessionData.length === 0) {
+        renderPitLossStats();
+        renderPitLossTable();
+        return [];
+      }
+
+      const rows = sessionData;
+      if (!rows || rows.length === 0) {
+        renderPitLossStats();
+        renderPitLossTable();
+        return [];
+      }
+
+      const driverLaps = new Map();
+      rows.forEach(row => {
+        const driver = String(row.lap_Driver || "").trim();
+        if (!driver) return;
+        if (!driverLaps.has(driver)) {
+          driverLaps.set(driver, []);
+        }
+        driverLaps.get(driver).push(row);
+      });
+
+      const events = [];
+      driverLaps.forEach((rows, driver) => {
+        const sortedRows = rows.slice().sort((a, b) => {
+          const aLap = parseFloat(a.lap_LapNumber);
+          const bLap = parseFloat(b.lap_LapNumber);
+          return (Number.isFinite(aLap) ? aLap : 0) - (Number.isFinite(bLap) ? bLap : 0);
+        });
+
+        const lapLookup = new Map();
+        sortedRows.forEach(row => {
+          const lapNum = parseInt(row.lap_LapNumber, 10);
+          if (!Number.isFinite(lapNum)) return;
+          lapLookup.set(lapNum, row);
+        });
+
+        const pitInRows = sortedRows
+          .map(row => ({
+            row,
+            lapNum: parseInt(row.lap_LapNumber, 10),
+            hasPitIn: row.lap_PitInTime.trim() !== '',
+          }))
+          .filter(entry => Number.isFinite(entry.lapNum) && entry.hasPitIn);
+
+        let pitIndex = 0;
+        for (let i = 0; i < pitInRows.length; i++) {
+          const pitInLapNum = pitInRows[i].lapNum;
+          const pitInLap = lapLookup.get(pitInLapNum);
+          // check that pitInLapNum + 1 is in the lookup
+          if (!lapLookup.has(pitInLapNum + 1) || !lapLookup.has(pitInLapNum-1) || !lapLookup.has(pitInLapNum+2)) continue;
+
+          const pitOutLap = lapLookup.get(pitInLapNum + 1);
+          if (pitOutLap.lap_PitOutTime.trim() === '') continue;
+
+          const beforeLap = lapLookup.get(pitInLapNum - 1);
+          const afterLap = lapLookup.get(pitInLapNum + 2);
+          const pitLoss = parseFloat(pitInLap.lap_LapTime) + parseFloat(pitOutLap.lap_LapTime) - (parseFloat(beforeLap.lap_LapTime) + parseFloat(afterLap.lap_LapTime));
+
+          events.push({
+            key: `${driver}||${pitInLapNum}||${pitIndex}`,
+            pitInLapNum,
+            driver,
+            pitIndex,
+            pitLoss,
+          });
+          pitIndex++;
+        }
+      });
+
+      events.sort((a, b) => {return b.pitLoss - a.pitLoss});
+
+      pitLossEvents = events;
+      updatePitLossSelectionKeys();
+      renderPitLossStats();
+      renderPitLossTable();
+      return events;
+    }
+
+    if (pitLossTableContainer) {
+      pitLossTableContainer.addEventListener('change', (event) => {
+        const checkbox = event.target.closest('.pit-loss-checkbox');
+        if (!checkbox) return;
+        const key = checkbox.dataset.key;
+        if (!key) return;
+        if (checkbox.checked) {
+          appState.pitLossTab.selectedKeys.add(key);
+        } else {
+          appState.pitLossTab.selectedKeys.delete(key);
+        }
+        persistPitLossSelection();
+        renderPitLossStats();
+      });
+    }
+
+    if (copyPitLossAverageBtn) {
+      copyPitLossAverageBtn.addEventListener('click', () => {
+        const stats = computePitLossStats();
+        if (!Number.isFinite(stats.median)) {
+          return;
+        }
+        const value = parseFloat(stats.median.toFixed(3));
+        saveToState('calculator.pitLoss', value);
+        renderCalculatorInputsFromState();
+        const originalText = copyPitLossAverageBtn.textContent;
+        copyPitLossAverageBtn.textContent = 'Copied!';
+        setTimeout(() => {
+          copyPitLossAverageBtn.textContent = originalText;
+        }, 1200);
+      });
     }
 
     // Handle window resize for lap time chart
