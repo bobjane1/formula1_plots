@@ -7984,8 +7984,17 @@
         const config = calculatorConfigData[circuitName];
 
         // Don't set numLaps from config - use sched_laps from session
-        document.getElementById("calculatorPitLoss").value = config['Pit Loss'];
-        document.getElementById("calculatorScLength").value = config['SC Length'];
+        // Use state values if available, otherwise use config
+        if (appState.calculator.pitLoss !== null) {
+          document.getElementById("calculatorPitLoss").value = appState.calculator.pitLoss;
+        } else {
+          document.getElementById("calculatorPitLoss").value = config['Pit Loss'];
+        }
+        if (appState.calculator.scLength !== null) {
+          document.getElementById("calculatorScLength").value = appState.calculator.scLength;
+        } else {
+          document.getElementById("calculatorScLength").value = config['SC Length'];
+        }
 
         // Load compound pace data only (degradation comes from shared paceModel)
         // Use state values if available, otherwise use config
@@ -8009,9 +8018,23 @@
 
         // Load strategies of interest if available
         let strategiesLoaded = false;
-        if (config['Strategies Of Interest'] && config['Strategies Of Interest'][0]) {
+        const strategyInputs = document.querySelectorAll('.calculatorStrategyInput');
+
+        // Check if we have strategies from URL/state first
+        const hasStateStrategies = appState.calculator.strategies &&
+          appState.calculator.strategies.some(s => s && s.trim() !== '');
+
+        if (hasStateStrategies) {
+          // Use strategies from state (URL parameters)
+          appState.calculator.strategies.forEach((strategy, index) => {
+            if (index < strategyInputs.length) {
+              strategyInputs[index].value = strategy || '';
+            }
+          });
+          strategiesLoaded = true;
+        } else if (config['Strategies Of Interest'] && config['Strategies Of Interest'][0]) {
+          // Fall back to config strategies
           const strategies = config['Strategies Of Interest'][0];
-          const strategyInputs = document.querySelectorAll('.calculatorStrategyInput');
 
           // Clear all strategy inputs first
           strategyInputs.forEach(input => input.value = '');
