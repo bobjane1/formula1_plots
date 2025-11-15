@@ -4104,7 +4104,6 @@
       const lapsToDiscard = parseInt(document.getElementById("filterMinLap").value);
       const minLap = lapsToDiscard + 1;
       const endLaps = parseInt(document.getElementById("filterEndLaps").value);
-      const minStintLap = parseInt(document.getElementById("filterMinStintLap").value);
       const minDist = parseFloat(document.getElementById("filterMinDist").value);
       const includeRainfall = document.getElementById("filterRainfall").checked;
       const includeSafetyCar = document.getElementById("filterSafetyCar").checked;
@@ -4112,13 +4111,7 @@
       const includeLapped = document.getElementById('filterIncludeLapped').checked;
       const includeRetired = document.getElementById('filterIncludeRetired').checked;
 
-      return rows.filter(r => {
-        // Filter by stint lap first (before other filters)
-        if (minStintLap > 0) {
-          const tyreLife = parseInt(r.lap_TyreLife);
-          if (!isNaN(tyreLife) && tyreLife <= minStintLap) return false;
-        }
-
+      const filteredRows = rows.filter(r => {
         const lapNum = parseInt(r.lap_LapNumber);
         if (isNaN(lapNum) || lapNum < minLap) return false;
 
@@ -4167,6 +4160,21 @@
 
         return true;
       });
+
+      // filter to remove the lowest n laps per stint
+      const minStintLap = parseInt(document.getElementById("filterMinStintLap").value);
+      const byStintAndDriver = new Map();
+      for (const row of filteredRows) {
+        const key = `${row.lap_Driver}::${row.lap_Stint}`;
+        if (!byStintAndDriver.has(key)) byStintAndDriver.set(key, []);
+        byStintAndDriver.get(key).push(row);
+      }
+      const toRemove = new Set();
+      for (const rows of byStintAndDriver.values()) {
+        const sorted = [...rows].sort((a, b) => a.lap_LapNumber - b.lap_LapNumber);
+        for (const row of sorted.slice(0, minStintLap)) toRemove.add(row);
+      }
+      return filteredRows.filter(row => !toRemove.has(row));
     }
 
     /**
