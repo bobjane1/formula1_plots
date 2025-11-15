@@ -2342,19 +2342,7 @@
       renderTyreDegFilterInputsFromState();
 
       // Calculator tab
-      const calculatorPitLoss = document.getElementById('calculatorPitLoss');
-      const calculatorScLength = document.getElementById('calculatorScLength');
-      const calculatorFuelEffect = document.getElementById('calculatorFuelEffect');
-      const calculatorDegS = document.getElementById('calculatorDegS');
-      const calculatorDegM = document.getElementById('calculatorDegM');
-      const calculatorDegH = document.getElementById('calculatorDegH');
-      const calculatorPaceS = document.getElementById('calculatorPaceS');
-      const calculatorPaceM = document.getElementById('calculatorPaceM');
-      const calculatorPaceH = document.getElementById('calculatorPaceH');
-
-      if (calculatorPitLoss && appState.calculator.pitLoss !== null) calculatorPitLoss.value = appState.calculator.pitLoss;
-      if (calculatorScLength && appState.calculator.scLength !== null) calculatorScLength.value = appState.calculator.scLength;
-      renderCalculatorPaceInputsFromState();
+      renderCalculatorInputsFromState();
 
       // Calculator strategies
       const strategyInputs = document.querySelectorAll('.calculatorStrategyInput');
@@ -3165,7 +3153,10 @@
       }
     }
 
-    function renderCalculatorPaceInputsFromState() {
+    function renderCalculatorInputsFromState(options = {}) {
+      const skipSet = new Set(options.skip || []);
+      const calculatorPitLoss = document.getElementById('calculatorPitLoss');
+      const calculatorScLength = document.getElementById('calculatorScLength');
       const calculatorPaceS = document.getElementById('calculatorPaceS');
       const calculatorPaceM = document.getElementById('calculatorPaceM');
       const calculatorPaceH = document.getElementById('calculatorPaceH');
@@ -3173,12 +3164,31 @@
       const calculatorDegM = document.getElementById('calculatorDegM');
       const calculatorDegH = document.getElementById('calculatorDegH');
 
-      if (calculatorPaceS && appState.calculator.paceS !== null) calculatorPaceS.value = appState.calculator.paceS;
-      if (calculatorPaceM && appState.calculator.paceM !== null) calculatorPaceM.value = appState.calculator.paceM;
-      if (calculatorPaceH && appState.calculator.paceH !== null) calculatorPaceH.value = appState.calculator.paceH;
-      if (calculatorDegS) calculatorDegS.value = appState.paceModel.degSoft;
-      if (calculatorDegM) calculatorDegM.value = appState.paceModel.degMedium;
-      if (calculatorDegH) calculatorDegH.value = appState.paceModel.degHard;
+      if (calculatorPitLoss && !skipSet.has('calculatorPitLoss')) {
+        const value = appState.calculator.pitLoss;
+        calculatorPitLoss.value = value === null || value === undefined ? '' : value;
+      }
+
+      if (calculatorScLength && !skipSet.has('calculatorScLength')) {
+        const value = appState.calculator.scLength;
+        calculatorScLength.value = value === null || value === undefined ? '' : value;
+      }
+
+      if (calculatorPaceS && !skipSet.has('calculatorPaceS')) {
+        const value = appState.calculator.paceS;
+        calculatorPaceS.value = value === null || value === undefined ? '' : value;
+      }
+      if (calculatorPaceM && !skipSet.has('calculatorPaceM')) {
+        const value = appState.calculator.paceM;
+        calculatorPaceM.value = value === null || value === undefined ? '' : value;
+      }
+      if (calculatorPaceH && !skipSet.has('calculatorPaceH')) {
+        const value = appState.calculator.paceH;
+        calculatorPaceH.value = value === null || value === undefined ? '' : value;
+      }
+      if (calculatorDegS && !skipSet.has('calculatorDegS')) calculatorDegS.value = appState.paceModel.degSoft;
+      if (calculatorDegM && !skipSet.has('calculatorDegM')) calculatorDegM.value = appState.paceModel.degMedium;
+      if (calculatorDegH && !skipSet.has('calculatorDegH')) calculatorDegH.value = appState.paceModel.degHard;
     }
 
     function updateTyreDegFilterState(key, rawValue) {
@@ -5143,25 +5153,19 @@
       `;
       copyButton.addEventListener('click', () => {
         // Update calculator pace inputs
-        const calculatorPaceS = document.getElementById('calculatorPaceS');
-        const calculatorPaceM = document.getElementById('calculatorPaceM');
-        const calculatorPaceH = document.getElementById('calculatorPaceH');
-
-        if (compoundAverages.has('SOFT') && calculatorPaceS) {
-          const value = compoundAverages.get('SOFT');
-          calculatorPaceS.value = value.toFixed(3);
-          saveToState('calculator.paceS', parseFloat(value.toFixed(3)));
+        if (compoundAverages.has('SOFT')) {
+          const value = parseFloat(compoundAverages.get('SOFT').toFixed(3));
+          saveToState('calculator.paceS', value);
         }
-        if (compoundAverages.has('MEDIUM') && calculatorPaceM) {
-          const value = compoundAverages.get('MEDIUM');
-          calculatorPaceM.value = value.toFixed(3);
-          saveToState('calculator.paceM', parseFloat(value.toFixed(3)));
+        if (compoundAverages.has('MEDIUM')) {
+          const value = parseFloat(compoundAverages.get('MEDIUM').toFixed(3));
+          saveToState('calculator.paceM', value);
         }
-        if (compoundAverages.has('HARD') && calculatorPaceH) {
-          const value = compoundAverages.get('HARD');
-          calculatorPaceH.value = value.toFixed(3);
-          saveToState('calculator.paceH', parseFloat(value.toFixed(3)));
+        if (compoundAverages.has('HARD')) {
+          const value = parseFloat(compoundAverages.get('HARD').toFixed(3));
+          saveToState('calculator.paceH', value);
         }
+        renderCalculatorInputsFromState();
 
         // Visual feedback
         copyButton.textContent = 'Copied!';
@@ -7616,14 +7620,14 @@
 
       try {
         const numLaps = parseInt(document.getElementById("calculatorNumLaps").value, 10);
-        const fuelEffect = parseFloat(document.getElementById("calculatorFuelEffect").value);
-        const scLength = parseInt(document.getElementById("calculatorScLength").value, 10);
-        const pitLoss = parseFloat(document.getElementById("calculatorPitLoss").value);
+        const fuelEffect = appState.paceModel.fuelEffect;
+        const scLength = appState.calculator.scLength;
+        const pitLoss = appState.calculator.pitLoss;
 
         const compounds = [
-          { type: "S", pace: parseFloat(document.getElementById("calculatorPaceS").value), degradation: parseFloat(document.getElementById("calculatorDegS").value) },
-          { type: "M", pace: parseFloat(document.getElementById("calculatorPaceM").value), degradation: parseFloat(document.getElementById("calculatorDegM").value) },
-          { type: "H", pace: parseFloat(document.getElementById("calculatorPaceH").value), degradation: parseFloat(document.getElementById("calculatorDegH").value) }
+          { type: "S", pace: appState.calculator.paceS, degradation: appState.paceModel.degSoft },
+          { type: "M", pace: appState.calculator.paceM, degradation: appState.paceModel.degMedium },
+          { type: "H", pace: appState.calculator.paceH, degradation: appState.paceModel.degHard }
         ];
 
         if (!Number.isFinite(numLaps) || numLaps <= 0) throw new Error("Num laps must be a positive integer.");
@@ -7738,14 +7742,14 @@
     function seedCalculatorPatternsFromFree() {
       try {
         const numLaps = parseInt(document.getElementById("calculatorNumLaps").value, 10);
-        const fuelEffect = parseFloat(document.getElementById("calculatorFuelEffect").value);
-        const scLength = parseInt(document.getElementById("calculatorScLength").value, 10);
-        const pitLoss = parseFloat(document.getElementById("calculatorPitLoss").value);
+        const fuelEffect = appState.paceModel.fuelEffect;
+        const scLength = appState.calculator.scLength;
+        const pitLoss = appState.calculator.pitLoss;
 
         const compounds = [
-          { type: "S", pace: parseFloat(document.getElementById("calculatorPaceS").value), degradation: parseFloat(document.getElementById("calculatorDegS").value) },
-          { type: "M", pace: parseFloat(document.getElementById("calculatorPaceM").value), degradation: parseFloat(document.getElementById("calculatorDegM").value) },
-          { type: "H", pace: parseFloat(document.getElementById("calculatorPaceH").value), degradation: parseFloat(document.getElementById("calculatorDegH").value) }
+          { type: "S", pace: appState.calculator.paceS, degradation: appState.paceModel.degSoft },
+          { type: "M", pace: appState.calculator.paceM, degradation: appState.paceModel.degMedium },
+          { type: "H", pace: appState.calculator.paceH, degradation: appState.paceModel.degHard }
         ];
 
         if (!Number.isFinite(numLaps) || !Number.isFinite(fuelEffect) ||
@@ -7783,37 +7787,33 @@
       if (circuitName && calculatorConfigData[circuitName]) {
         const config = calculatorConfigData[circuitName];
 
-        // Don't set numLaps from config - use sched_laps from session
-        // Use state values if available, otherwise use config
-        if (appState.calculator.pitLoss !== null) {
-          document.getElementById("calculatorPitLoss").value = appState.calculator.pitLoss;
-        } else {
-          document.getElementById("calculatorPitLoss").value = config['Pit Loss'];
+        let calculatorInputsChanged = false;
+        if (appState.calculator.pitLoss === null && config['Pit Loss'] !== undefined) {
+          saveToState('calculator.pitLoss', config['Pit Loss']);
+          calculatorInputsChanged = true;
         }
-        if (appState.calculator.scLength !== null) {
-          document.getElementById("calculatorScLength").value = appState.calculator.scLength;
-        } else {
-          document.getElementById("calculatorScLength").value = config['SC Length'];
+        if (appState.calculator.scLength === null && config['SC Length'] !== undefined) {
+          saveToState('calculator.scLength', config['SC Length']);
+          calculatorInputsChanged = true;
         }
 
-        // Load compound pace data only (degradation comes from shared paceModel)
-        // Use state values if available, otherwise use config
-        if (appState.calculator.paceS !== null) {
-          document.getElementById("calculatorPaceS").value = appState.calculator.paceS;
-        } else if (config['Softs']) {
-          document.getElementById("calculatorPaceS").value = config['Softs']['Pace'];
+        if (appState.calculator.paceS === null && config['Softs']) {
+          saveToState('calculator.paceS', parseFloat(config['Softs']['Pace']));
+          calculatorInputsChanged = true;
         }
 
-        if (appState.calculator.paceM !== null) {
-          document.getElementById("calculatorPaceM").value = appState.calculator.paceM;
-        } else if (config['Mediums']) {
-          document.getElementById("calculatorPaceM").value = config['Mediums']['Pace'];
+        if (appState.calculator.paceM === null && config['Mediums']) {
+          saveToState('calculator.paceM', parseFloat(config['Mediums']['Pace']));
+          calculatorInputsChanged = true;
         }
 
-        if (appState.calculator.paceH !== null) {
-          document.getElementById("calculatorPaceH").value = appState.calculator.paceH;
-        } else if (config['Hards']) {
-          document.getElementById("calculatorPaceH").value = config['Hards']['Pace'];
+        if (appState.calculator.paceH === null && config['Hards']) {
+          saveToState('calculator.paceH', parseFloat(config['Hards']['Pace']));
+          calculatorInputsChanged = true;
+        }
+
+        if (calculatorInputsChanged) {
+          renderCalculatorInputsFromState();
         }
 
         // Load strategies of interest if available
@@ -7863,13 +7863,23 @@
         runCalculatorSimulation();
       } else {
         // Default values (degradation and fuel effect come from shared paceModel)
-        document.getElementById("calculatorPitLoss").value = 21.8;
-        document.getElementById("calculatorScLength").value = 5;
+        const setDefaultIfNull = (key, value) => {
+          if (appState.calculator[key] === null || appState.calculator[key] === undefined) {
+            saveToState(`calculator.${key}`, value);
+            return true;
+          }
+          return false;
+        };
+        let calculatorDefaultsChanged = false;
+        calculatorDefaultsChanged = setDefaultIfNull('pitLoss', 21.8) || calculatorDefaultsChanged;
+        calculatorDefaultsChanged = setDefaultIfNull('scLength', 5) || calculatorDefaultsChanged;
+        calculatorDefaultsChanged = setDefaultIfNull('paceS', 75.0) || calculatorDefaultsChanged;
+        calculatorDefaultsChanged = setDefaultIfNull('paceM', 75.5) || calculatorDefaultsChanged;
+        calculatorDefaultsChanged = setDefaultIfNull('paceH', 76.5) || calculatorDefaultsChanged;
 
-        // Use state values if available, otherwise use defaults
-        document.getElementById("calculatorPaceS").value = appState.calculator.paceS !== null ? appState.calculator.paceS : 75.0;
-        document.getElementById("calculatorPaceM").value = appState.calculator.paceM !== null ? appState.calculator.paceM : 75.5;
-        document.getElementById("calculatorPaceH").value = appState.calculator.paceH !== null ? appState.calculator.paceH : 76.5;
+        if (calculatorDefaultsChanged) {
+          renderCalculatorInputsFromState();
+        }
 
         // Initialize SC probability table
         const tbody = document.querySelector("#calculatorScProbTable tbody");
@@ -7900,10 +7910,26 @@
 
     // Add event listeners to save calculator inputs to state
     document.getElementById('calculatorPitLoss').addEventListener('input', function() {
-      saveToState('calculator.pitLoss', parseFloat(this.value) || null);
+      const text = this.value.trim();
+      if (text === '') {
+        saveToState('calculator.pitLoss', null);
+      } else {
+        const value = parseFloat(text);
+        if (!Number.isFinite(value)) return;
+        saveToState('calculator.pitLoss', value);
+      }
+      renderCalculatorInputsFromState({ skip: ['calculatorPitLoss'] });
     });
     document.getElementById('calculatorScLength').addEventListener('input', function() {
-      saveToState('calculator.scLength', parseInt(this.value) || null);
+      const text = this.value.trim();
+      if (text === '') {
+        saveToState('calculator.scLength', null);
+      } else {
+        const value = parseInt(text, 10);
+        if (!Number.isFinite(value)) return;
+        saveToState('calculator.scLength', value);
+      }
+      renderCalculatorInputsFromState({ skip: ['calculatorScLength'] });
     });
     document.getElementById('calculatorFuelEffect').addEventListener('input', function() {
       const value = parseFloat(this.value);
@@ -7912,18 +7938,39 @@
       renderPaceModelInputsFromState({ skip: ['calculatorFuelEffect'] });
       onLapTimeAdjustmentChange();
     });
-      document.getElementById('calculatorPaceS').addEventListener('input', function() {
-        const value = this.value.trim();
-        saveToState('calculator.paceS', value === '' ? null : parseFloat(value));
-      });
-      document.getElementById('calculatorPaceM').addEventListener('input', function() {
-        const value = this.value.trim();
-        saveToState('calculator.paceM', value === '' ? null : parseFloat(value));
-      });
-      document.getElementById('calculatorPaceH').addEventListener('input', function() {
-        const value = this.value.trim();
-        saveToState('calculator.paceH', value === '' ? null : parseFloat(value));
-      });
+    document.getElementById('calculatorPaceS').addEventListener('input', function() {
+      const text = this.value.trim();
+      if (text === '') {
+        saveToState('calculator.paceS', null);
+      } else {
+        const value = parseFloat(text);
+        if (!Number.isFinite(value)) return;
+        saveToState('calculator.paceS', value);
+      }
+      renderCalculatorInputsFromState({ skip: ['calculatorPaceS'] });
+    });
+    document.getElementById('calculatorPaceM').addEventListener('input', function() {
+      const text = this.value.trim();
+      if (text === '') {
+        saveToState('calculator.paceM', null);
+      } else {
+        const value = parseFloat(text);
+        if (!Number.isFinite(value)) return;
+        saveToState('calculator.paceM', value);
+      }
+      renderCalculatorInputsFromState({ skip: ['calculatorPaceM'] });
+    });
+    document.getElementById('calculatorPaceH').addEventListener('input', function() {
+      const text = this.value.trim();
+      if (text === '') {
+        saveToState('calculator.paceH', null);
+      } else {
+        const value = parseFloat(text);
+        if (!Number.isFinite(value)) return;
+        saveToState('calculator.paceH', value);
+      }
+      renderCalculatorInputsFromState({ skip: ['calculatorPaceH'] });
+    });
     document.getElementById('calculatorDegS').addEventListener('input', function() {
       const value = parseFloat(this.value);
       if (!Number.isFinite(value)) return;
