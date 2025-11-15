@@ -2351,10 +2351,7 @@
       if (tyreLifeAdjustToggle) tyreLifeAdjustToggle.classList.toggle('active', appState.lapTime.tyreLifeAdjust);
 
       // Race trace tab
-      const raceTraceLapMin = document.getElementById('raceTraceLapMin');
-      const raceTraceLapMax = document.getElementById('raceTraceLapMax');
-      if (raceTraceLapMin) raceTraceLapMin.value = appState.raceTrace.lapMin;
-      if (raceTraceLapMax) raceTraceLapMax.value = appState.raceTrace.lapMax;
+      renderRaceTraceLapInputsFromState();
 
       // Tyre deg tab
       const tyreDegFuelAdjustToggle = document.getElementById('tyreDegFuelAdjustToggle');
@@ -2551,22 +2548,18 @@
           const minLapNum = Math.min(...lapNumbers);
           const maxLapNum = Math.max(...lapNumbers);
 
-          // Only set default values if not restoring from permalink
-          // If appState has non-default values, use those instead
-          if (appState.raceTrace.lapMin !== 1 || appState.raceTrace.lapMax !== 1) {
-            // Restoring from permalink - use appState values
-            raceTraceLapMin.value = appState.raceTrace.lapMin;
-            raceTraceLapMax.value = appState.raceTrace.lapMax;
-          } else {
-            // No permalink - use data defaults
-            raceTraceLapMin.value = minLapNum;
-            raceTraceLapMax.value = maxLapNum;
-            appState.raceTrace.lapMin = minLapNum;
-            appState.raceTrace.lapMax = maxLapNum;
-          }
+          setRaceTraceLapBounds(minLapNum, maxLapNum);
 
-          raceTraceLapMin.min = minLapNum;
-          raceTraceLapMax.max = maxLapNum;
+          const hasSavedRange = (appState.raceTrace.lapMin !== 1 || appState.raceTrace.lapMax !== 1);
+          let nextMin = hasSavedRange ? appState.raceTrace.lapMin : minLapNum;
+          let nextMax = hasSavedRange ? appState.raceTrace.lapMax : maxLapNum;
+
+          nextMin = Math.max(minLapNum, Math.min(nextMin ?? minLapNum, maxLapNum));
+          nextMax = Math.max(nextMin, Math.min(nextMax ?? maxLapNum, maxLapNum));
+
+          appState.raceTrace.lapMin = nextMin;
+          appState.raceTrace.lapMax = nextMax;
+          renderRaceTraceLapInputsFromState();
           calculateRaceTraceGaps(sessionData);
           buildRaceTraceDriverList();
 
@@ -3153,14 +3146,61 @@
     let raceTraceYear = '';
     let raceTraceRound = '';
     let raceTraceSessionType = '';
+    let raceTraceLapBounds = { min: 1, max: 1 };
+
+    function setRaceTraceLapBounds(minLap, maxLap) {
+      const clampedMin = Number.isFinite(minLap) ? minLap : 1;
+      const clampedMax = Number.isFinite(maxLap) ? Math.max(clampedMin, maxLap) : clampedMin;
+      raceTraceLapBounds = { min: clampedMin, max: clampedMax };
+      if (raceTraceLapMin) raceTraceLapMin.min = clampedMin;
+      if (raceTraceLapMax) raceTraceLapMax.max = clampedMax;
+    }
+
+    function renderRaceTraceLapInputsFromState() {
+      if (raceTraceLapMin) {
+        const value = appState.raceTrace.lapMin;
+        raceTraceLapMin.value = (value === 0 || value === null || value === undefined) ? '' : value;
+      }
+      if (raceTraceLapMax) {
+        const value = appState.raceTrace.lapMax;
+        raceTraceLapMax.value = (value === 0 || value === null || value === undefined) ? '' : value;
+      }
+    }
+
+    function updateRaceTraceLapState(key, rawValue) {
+      const rawText = rawValue !== undefined && rawValue !== null ? String(rawValue).trim() : '';
+      const previousValue = appState.raceTrace[key];
+
+      if (rawText === '') {
+        if (previousValue !== 0) {
+          saveToState(`raceTrace.${key}`, 0);
+        }
+        renderRaceTraceLapInputsFromState();
+        return 0;
+      }
+
+      const fallback = previousValue && previousValue !== 0
+        ? previousValue
+        : (key === 'lapMin' ? raceTraceLapBounds.min : raceTraceLapBounds.max);
+      const parsed = parseInt(rawText, 10);
+      let nextValue = Number.isFinite(parsed) ? parsed : fallback;
+      nextValue = Math.max(raceTraceLapBounds.min, Math.min(nextValue, raceTraceLapBounds.max));
+
+      if (nextValue !== previousValue) {
+        saveToState(`raceTrace.${key}`, nextValue);
+      }
+
+      renderRaceTraceLapInputsFromState();
+      return nextValue;
+    }
 
     // Set up race trace event listeners
     raceTraceLapMin.addEventListener('input', function() {
-      saveToState('raceTrace.lapMin', parseInt(this.value));
+      updateRaceTraceLapState('lapMin', this.value);
       renderRaceTraceChart();
     });
     raceTraceLapMax.addEventListener('input', function() {
-      saveToState('raceTrace.lapMax', parseInt(this.value));
+      updateRaceTraceLapState('lapMax', this.value);
       renderRaceTraceChart();
     });
 
@@ -3508,8 +3548,19 @@
         raceTraceChart = echarts.init(chartContainer);
       }
 
-      const minLap = parseInt(raceTraceLapMin.value);
-      const maxLap = parseInt(raceTraceLapMax.value);
+      const storedMinLap = appState.raceTrace.lapMin;
+      const storedMaxLap = appState.raceTrace.lapMax;
+      const minLapState = (storedMinLap === 0 || storedMinLap === null || storedMinLap === undefined)
+        ? raceTraceLapBounds.min
+        : storedMinLap;
+      const maxLapState = (storedMaxLap === 0 || storedMaxLap === null || storedMaxLap === undefined)
+        ? raceTraceLapBounds.max
+        : storedMaxLap;
+      const minLap = Math.max(raceTraceLapBounds.min, Math.min(minLapState, raceTraceLapBounds.max));
+      let maxLap = Math.max(raceTraceLapBounds.min, Math.min(maxLapState, raceTraceLapBounds.max));
+      if (maxLap < minLap) {
+        maxLap = minLap;
+      }
 
       // Detect rainfall, safety car, and red flag laps using unfiltered session data
       const rainfallRanges = detectRainfallLaps(raceTraceCurrentSessionRows, minLap, maxLap);
