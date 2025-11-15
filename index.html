@@ -3047,6 +3047,13 @@ let raceTraceRound = '';
 let raceTraceSessionType = '';
 let raceTraceAvailableDrivers = [];
 let lapTimeAvailableDrivers = [];
+let raceTraceDriverManager = null;
+let lapTimeDriverManager = null;
+let lapTimeSummaryCheckboxManager = null;
+let tyreDegSelectionManager = null;
+let fuelEffectSelectionManager = null;
+let raceTraceDriverDisplayData = [];
+let lapTimeDriverDisplayData = [];
 
 function setsAreEqual(a, b) {
   if (a.size !== b.size) return false;
@@ -3092,10 +3099,223 @@ function updateSelectedDrivers(mutator, options = {}) {
   commitSelectedDrivers(next, options);
 }
 
-function replaceSelectedDrivers(drivers, options = {}) {
-  return commitSelectedDrivers(new Set(drivers), options);
-}
-    let raceTraceLapBounds = { min: 1, max: 1 };
+    function replaceSelectedDrivers(drivers, options = {}) {
+      return commitSelectedDrivers(new Set(drivers), options);
+    }
+
+    class CheckboxManager {
+      constructor(options = {}) {
+        this.container = options.container || null;
+        this.selectAllId = options.selectAllId || null;
+        this.itemsSource = options.itemsSource || (() => []);
+        this.getSelectionSet = options.getSelectionSet || (() => options.selectionState || new Set());
+        this.selectionUpdater = options.selectionUpdater || (mutator => {
+          const set = this.getSelectionSet();
+          if (set) mutator(set);
+        });
+        this.onSelectionChange = options.onSelectionChange || (() => {});
+        this.getItemKey = options.getItemKey || (item => item);
+        this.updateItemAppearance = options.updateItemAppearance || null;
+        this.structureBuilder = options.buildStructure || null;
+        this.pendingStructure = null;
+      }
+
+      setStructure(structure) {
+        this.pendingStructure = structure;
+      }
+
+      buildStructure() {
+        if (this.pendingStructure) {
+          const structure = this.pendingStructure;
+          this.pendingStructure = null;
+          return structure;
+        }
+        if (typeof this.structureBuilder === 'function') {
+          return this.structureBuilder();
+        }
+        return this.buildStructureFromOptions();
+      }
+
+      buildStructureFromOptions() {
+        return { items: [], selectAllElement: null };
+      }
+
+      render() {
+        const { items, selectAllElement } = this.buildStructure();
+        this.items = Array.isArray(items) ? items : [];
+        this.selectAllElement = selectAllElement || null;
+        this.attachListeners();
+        this.syncCheckboxStates();
+        this.updateSelectAllState();
+      }
+
+      attachListeners() {
+        if (this.selectAllElement) {
+          this.selectAllElement.addEventListener('change', (e) => {
+            this.handleSelectAll(e.target.checked);
+          });
+        }
+        this.items.forEach(item => {
+          if (item.checkbox) {
+            item.checkbox.addEventListener('change', (e) => {
+              this.handleItemToggle(item, e.target.checked);
+            });
+          }
+        });
+      }
+
+      handleSelectAll(checked) {
+        const keys = this.items.map(item => item.key);
+        this.selectionUpdater(set => {
+          keys.forEach(key => {
+            if (checked) {
+              set.add(key);
+            } else {
+              set.delete(key);
+            }
+          });
+        });
+        this.onSelectionChange({ type: 'selectAll', checked });
+        this.syncCheckboxStates();
+        this.updateSelectAllState();
+      }
+
+      handleItemToggle(item, checked) {
+        this.selectionUpdater(set => {
+          if (checked) {
+            set.add(item.key);
+          } else {
+            set.delete(item.key);
+          }
+        });
+        this.onSelectionChange({ key: item.key, checked });
+        this.syncCheckboxStates();
+        this.updateSelectAllState();
+      }
+
+      syncCheckboxStates() {
+        const selection = this.getSelectionSet() || new Set();
+        this.items.forEach(item => {
+          const isSelected = selection.has(item.key);
+          if (item.checkbox) {
+            item.checkbox.checked = isSelected;
+          }
+          if (typeof this.updateItemAppearance === 'function') {
+            this.updateItemAppearance(item, isSelected);
+          } else if (item.rowElement && this.selectAllId === null) {
+            item.rowElement.classList.toggle('selected', isSelected);
+          }
+        });
+      }
+
+      updateSelectAllState() {
+        if (!this.selectAllElement || !this.items) return;
+        const selection = this.getSelectionSet() || new Set();
+        const total = this.items.length;
+        if (total === 0) {
+          this.selectAllElement.checked = false;
+          this.selectAllElement.indeterminate = false;
+          return;
+        }
+        const selectedCount = this.items.filter(item => selection.has(item.key)).length;
+        this.selectAllElement.checked = selectedCount === total;
+        this.selectAllElement.indeterminate = selectedCount > 0 && selectedCount < total;
+      }
+    }
+
+    class DriverSelectionManager extends CheckboxManager {
+      constructor(options = {}) {
+        super({
+          ...options,
+          getSelectionSet: options.getSelectionSet || (() => appState.selectedDrivers),
+          selectionUpdater: options.selectionUpdater || (mutator => updateSelectedDrivers(mutator))
+        });
+        this.container = options.container;
+        this.itemsSource = options.itemsSource || (() => []);
+        this.selectAllId = options.selectAllId;
+        this.selectAllLabel = options.selectAllLabel || 'Select All';
+        this.rowTag = options.rowTag || 'div';
+        this.rowClass = options.rowClass || '';
+        this.selectAllClass = options.selectAllClass || '';
+        this.inputIdPrefix = options.inputIdPrefix || 'driver';
+      }
+
+      buildStructure() {
+        const container = this.container;
+        if (!container) {
+          return { items: [], selectAllElement: null };
+        }
+        const drivers = this.itemsSource ? this.itemsSource() : [];
+        container.innerHTML = '';
+        if (!drivers || drivers.length === 0) {
+          return { items: [], selectAllElement: null };
+        }
+
+        const selectAllWrapper = document.createElement(this.rowTag === 'label' ? 'label' : 'div');
+        selectAllWrapper.className = this.selectAllClass;
+        selectAllWrapper.style.borderBottom = '1px solid var(--border-color)';
+        selectAllWrapper.style.marginBottom = '8px';
+        selectAllWrapper.style.paddingBottom = '8px';
+        const selectAllCheckbox = document.createElement('input');
+        selectAllCheckbox.type = 'checkbox';
+        selectAllCheckbox.id = this.selectAllId;
+        const selectAllLabel = document.createElement(this.rowTag === 'label' ? 'span' : 'label');
+        selectAllLabel.textContent = this.selectAllLabel;
+        selectAllLabel.style.fontWeight = '600';
+        if (selectAllLabel.tagName.toLowerCase() === 'label') {
+          selectAllLabel.htmlFor = this.selectAllId;
+        }
+        selectAllWrapper.appendChild(selectAllCheckbox);
+        selectAllWrapper.appendChild(selectAllLabel);
+        container.appendChild(selectAllWrapper);
+
+        const items = [];
+        drivers.forEach(driver => {
+          const wrapper = document.createElement(this.rowTag);
+          wrapper.className = this.rowClass;
+          if (this.rowTag === 'label') {
+            wrapper.htmlFor = `${this.inputIdPrefix}-${driver.key}`;
+          }
+
+          const checkbox = document.createElement('input');
+          checkbox.type = 'checkbox';
+          checkbox.id = `${this.inputIdPrefix}-${driver.key}`;
+          if (driver.color) {
+            checkbox.style.accentColor = driver.color;
+          }
+
+          const labelEl = document.createElement(this.rowTag === 'label' ? 'span' : 'label');
+          if (labelEl.tagName.toLowerCase() === 'label') {
+            labelEl.htmlFor = checkbox.id;
+          }
+          labelEl.textContent = driver.label;
+          if (driver.color) {
+            labelEl.style.color = driver.color;
+          }
+
+          wrapper.appendChild(checkbox);
+          wrapper.appendChild(labelEl);
+          container.appendChild(wrapper);
+          items.push({ key: driver.key, checkbox });
+        });
+
+        return { items, selectAllElement: selectAllCheckbox };
+      }
+    }
+
+    class TableCheckboxManager extends CheckboxManager {
+      constructor(options = {}) {
+        super({
+          ...options,
+          updateItemAppearance: options.updateItemAppearance || ((item, isSelected) => {
+            if (options.selectedClass && item.rowElement) {
+              item.rowElement.classList.toggle(options.selectedClass, isSelected);
+            }
+          })
+        });
+      }
+    }
+        let raceTraceLapBounds = { min: 1, max: 1 };
 
     const DEFAULT_SC_PROB_RANGES = [
       { from: '1', to: '1', prob: '26.1' },
@@ -3521,9 +3741,13 @@ function replaceSelectedDrivers(drivers, options = {}) {
     }
 
     function buildRaceTraceDriverList() {
-      raceTraceDriverList.innerHTML = '';
+      if (!raceTraceDriverList) return;
 
       const drivers = Object.keys(raceTraceDriverLines);
+      if (drivers.length === 0) {
+        raceTraceDriverList.innerHTML = '';
+        return;
+      }
       const driverFinishInfo = drivers.map(driver => {
         const data = raceTraceDriverLines[driver];
         const maxLapNum = Math.max(...data.laps);
@@ -3536,95 +3760,30 @@ function replaceSelectedDrivers(drivers, options = {}) {
       const sortedDriverFinishInfo = sortDriversByFinishingOrder(driverFinishInfo);
       raceTraceAvailableDrivers = sortedDriverFinishInfo.map(({ driver }) => driver);
 
-      // Add "Select All" checkbox at the top
-      const selectAllDiv = document.createElement('div');
-      selectAllDiv.className = 'race-trace-driver';
-      selectAllDiv.style.borderBottom = '1px solid var(--border-color)';
-      selectAllDiv.style.marginBottom = '8px';
-      selectAllDiv.style.paddingBottom = '8px';
-
-      const selectAllCheckbox = document.createElement('input');
-      selectAllCheckbox.type = 'checkbox';
-      selectAllCheckbox.id = 'raceTraceSelectAllDrivers';
-
-      const selectAllLabel = document.createElement('label');
-      selectAllLabel.htmlFor = 'raceTraceSelectAllDrivers';
-      selectAllLabel.textContent = 'Select All';
-      selectAllLabel.style.fontWeight = '600';
-
-      selectAllDiv.appendChild(selectAllCheckbox);
-      selectAllDiv.appendChild(selectAllLabel);
-      raceTraceDriverList.appendChild(selectAllDiv);
-
-      // Helper function to update select all checkbox state
-      const updateSelectAllState = () => {
-        const driverCheckboxes = raceTraceDriverList.querySelectorAll('input[type="checkbox"]:not(#raceTraceSelectAllDrivers)');
-        const checkedCount = Array.from(driverCheckboxes).filter(cb => cb.checked).length;
-
-        if (checkedCount === 0) {
-          selectAllCheckbox.checked = false;
-          selectAllCheckbox.indeterminate = false;
-        } else if (checkedCount === driverCheckboxes.length) {
-          selectAllCheckbox.checked = true;
-          selectAllCheckbox.indeterminate = false;
-        } else {
-          selectAllCheckbox.checked = false;
-          selectAllCheckbox.indeterminate = true;
-        }
-      };
-
-      // Select/deselect all drivers
-      selectAllCheckbox.addEventListener('change', (e) => {
-        const shouldCheck = e.target.checked;
-        updateSelectedDrivers((set) => {
-          raceTraceAvailableDrivers.forEach(driverId => {
-            if (shouldCheck) {
-              set.add(driverId);
-            } else {
-              set.delete(driverId);
-            }
-          });
-        });
-      });
-
-      sortedDriverFinishInfo.forEach(({ driver }) => {
-        const div = document.createElement('div');
-        div.className = 'race-trace-driver';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.id = `race-trace-driver-${driver}`;
-        checkbox.checked = appState.selectedDrivers.has(driver);
-
+      raceTraceDriverDisplayData = sortedDriverFinishInfo.map(({ driver }) => {
         const info = getDriverInfo(driver);
-        checkbox.style.accentColor = info.color;
-
-        checkbox.addEventListener('change', (e) => {
-          const isChecked = e.target.checked;
-          updateSelectedDrivers((set) => {
-            if (isChecked) {
-              set.add(driver);
-            } else {
-              set.delete(driver);
-            }
-          });
-        });
-
-        const label = document.createElement('label');
-        label.htmlFor = `race-trace-driver-${driver}`;
-
-        // Format: "Full Name (ABB)"
         const displayName = info.fullName ? `${info.fullName} (${driver})` : driver;
-        label.textContent = displayName;
-        label.style.color = info.color;
-
-        div.appendChild(checkbox);
-        div.appendChild(label);
-        raceTraceDriverList.appendChild(div);
+        return {
+          key: driver,
+          label: displayName,
+          color: info.color || '#888888'
+        };
       });
 
-      // Set initial state of select all checkbox
-      updateSelectAllState();
+      if (!raceTraceDriverManager) {
+        raceTraceDriverManager = new DriverSelectionManager({
+          container: raceTraceDriverList,
+          selectAllId: 'raceTraceSelectAllDrivers',
+          selectAllLabel: 'Select All',
+          rowTag: 'div',
+          rowClass: 'race-trace-driver',
+          selectAllClass: 'race-trace-driver',
+          inputIdPrefix: 'race-trace-driver',
+          itemsSource: () => raceTraceDriverDisplayData
+        });
+      }
+
+      raceTraceDriverManager.render();
     }
 
     // Shared detection functions that work with any session rows
@@ -4756,99 +4915,34 @@ function replaceSelectedDrivers(drivers, options = {}) {
         lapTimeAvailableDrivers = drivers.slice();
       }
       const activeDrivers = Array.isArray(drivers) ? drivers : lapTimeAvailableDrivers;
+      if (!lapTimeDriversList) return;
       lapTimeDriversList.innerHTML = '';
-
       if (!activeDrivers || activeDrivers.length === 0) return;
 
-      // Add "Select All" checkbox at the top
-      const selectAllWrapper = document.createElement('label');
-      selectAllWrapper.className = 'lap-time-driver-item';
-      selectAllWrapper.style.borderBottom = '1px solid var(--border-color)';
-      selectAllWrapper.style.marginBottom = '8px';
-      selectAllWrapper.style.paddingBottom = '8px';
-
-      const selectAllCheckbox = document.createElement('input');
-      selectAllCheckbox.type = 'checkbox';
-      selectAllCheckbox.id = 'lapTimeSelectAllDrivers';
-
-      const selectAllLabel = document.createElement('label');
-      selectAllLabel.textContent = 'Select All';
-      selectAllLabel.style.cursor = 'pointer';
-      selectAllLabel.style.fontWeight = '600';
-
-      selectAllWrapper.appendChild(selectAllCheckbox);
-      selectAllWrapper.appendChild(selectAllLabel);
-      lapTimeDriversList.appendChild(selectAllWrapper);
-
-      // Helper function to update select all checkbox state
-      const updateSelectAllState = () => {
-        const driverCheckboxes = lapTimeDriversList.querySelectorAll('input[type="checkbox"]:not(#lapTimeSelectAllDrivers)');
-        const checkedCount = Array.from(driverCheckboxes).filter(cb => cb.checked).length;
-
-        if (checkedCount === 0) {
-          selectAllCheckbox.checked = false;
-          selectAllCheckbox.indeterminate = false;
-        } else if (checkedCount === driverCheckboxes.length) {
-          selectAllCheckbox.checked = true;
-          selectAllCheckbox.indeterminate = false;
-        } else {
-          selectAllCheckbox.checked = false;
-          selectAllCheckbox.indeterminate = true;
-        }
-      };
-
-      // Select/deselect all drivers
-      selectAllCheckbox.addEventListener('change', (e) => {
-        const shouldCheck = e.target.checked;
-        updateSelectedDrivers((set) => {
-          activeDrivers.forEach(driver => {
-            if (shouldCheck) {
-              set.add(driver);
-            } else {
-              set.delete(driver);
-            }
-          });
-        });
-      });
-
-      activeDrivers.forEach(driver => {
-        const wrapper = document.createElement('label');
-        wrapper.className = 'lap-time-driver-item';
-
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.value = driver;
-        checkbox.checked = appState.selectedDrivers.has(driver);
-
+      lapTimeDriverDisplayData = activeDrivers.map(driver => {
         const info = getLapTimeDriverInfo(driver);
-        checkbox.style.accentColor = info.color;
-
-        checkbox.addEventListener('change', (e) => {
-          const isChecked = e.target.checked;
-          updateSelectedDrivers((set) => {
-            if (isChecked) {
-              set.add(driver);
-            } else {
-              set.delete(driver);
-            }
-          });
-        });
-
-        const label = document.createElement('label');
-
-        // Format: "Full Name (ABB)"
         const displayName = info.fullName ? `${info.fullName} (${driver})` : driver;
-        label.textContent = displayName;
-        label.style.cursor = 'pointer';
-        label.style.color = info.color;
-
-        wrapper.appendChild(checkbox);
-        wrapper.appendChild(label);
-        lapTimeDriversList.appendChild(wrapper);
+        return {
+          key: driver,
+          label: displayName,
+          color: info.color || '#888888'
+        };
       });
 
-      // Set initial state of select all checkbox
-      updateSelectAllState();
+      if (!lapTimeDriverManager) {
+        lapTimeDriverManager = new DriverSelectionManager({
+          container: lapTimeDriversList,
+          selectAllId: 'lapTimeSelectAllDrivers',
+          selectAllLabel: 'Select All',
+          rowTag: 'label',
+          rowClass: 'lap-time-driver-item',
+          selectAllClass: 'lap-time-driver-item',
+          inputIdPrefix: 'lap-time-driver',
+          itemsSource: () => lapTimeDriverDisplayData
+        });
+      }
+
+      lapTimeDriverManager.render();
     }
 
     function getF1TireColor(compound) {
@@ -5408,6 +5502,8 @@ function replaceSelectedDrivers(drivers, options = {}) {
       tbody.appendChild(avgRow);
 
       // Driver rows (in finishing order)
+      const summaryCheckboxItems = [];
+
       lapTimeDriverOrder.forEach(({ driver }) => {
         if (!driverAverages.has(driver)) return; // Skip drivers with no data
 
@@ -5418,27 +5514,9 @@ function replaceSelectedDrivers(drivers, options = {}) {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'stint-checkbox';
-        checkbox.checked = appState.selectedDrivers.has(driver);
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) {
-            appState.selectedDrivers.add(driver);
-          } else {
-            appState.selectedDrivers.delete(driver);
-          }
-
-          // Update the driver list checkboxes
-          buildLapTimeDriversList(lapTimeDriverOrder.filter(d => lapTimeCurrentGroups.has(d.driver)).map(d => d.driver));
-
-          renderLapTimeChart();
-          renderLapTimeSummaryTable();
-
-          // Also update race trace chart if it has data
-          if (Object.keys(raceTraceDriverLines).length > 0) {
-            renderRaceTraceChart();
-          }
-        });
         tdCheckbox.appendChild(checkbox);
         tr.appendChild(tdCheckbox);
+        summaryCheckboxItems.push({ key: driver, checkbox, rowElement: tr });
 
         // Driver name cell
         const driverCell = document.createElement('td');
@@ -5530,42 +5608,18 @@ function replaceSelectedDrivers(drivers, options = {}) {
 
       // Attach select all checkbox listener
       const selectAllCheckbox = document.getElementById('lapTimeSummarySelectAllCheckbox');
-      if (selectAllCheckbox) {
-        selectAllCheckbox.addEventListener('change', function() {
-          const driversInTable = lapTimeDriverOrder
-            .filter(({ driver }) => driverAverages.has(driver))
-            .map(({ driver }) => driver);
-
-          if (this.checked) {
-            // Select all drivers in table
-            driversInTable.forEach(driver => appState.selectedDrivers.add(driver));
-          } else {
-            // Deselect all drivers in table
-            driversInTable.forEach(driver => appState.selectedDrivers.delete(driver));
-          }
-
-
-          // Update the driver list checkboxes
-          buildLapTimeDriversList(lapTimeDriverOrder.filter(d => lapTimeCurrentGroups.has(d.driver)).map(d => d.driver));
-
-          renderLapTimeChart();
-          renderLapTimeSummaryTable();
-
-          // Also update race trace chart if it has data
-          if (Object.keys(raceTraceDriverLines).length > 0) {
-            renderRaceTraceChart();
-          };
+      if (!lapTimeSummaryCheckboxManager) {
+        lapTimeSummaryCheckboxManager = new TableCheckboxManager({
+          selectAllId: 'lapTimeSummarySelectAllCheckbox',
+          getSelectionSet: () => appState.selectedDrivers,
+          selectionUpdater: (mutator) => updateSelectedDrivers(mutator)
         });
-
-        // Set initial state of select all checkbox (checked/unchecked/indeterminate)
-        const driversInTable = lapTimeDriverOrder
-          .filter(({ driver }) => driverAverages.has(driver))
-          .map(({ driver }) => driver);
-        const selectedInTableCount = driversInTable.filter(driver => appState.selectedDrivers.has(driver)).length;
-
-        selectAllCheckbox.checked = selectedInTableCount === driversInTable.length && driversInTable.length > 0;
-        selectAllCheckbox.indeterminate = selectedInTableCount > 0 && selectedInTableCount < driversInTable.length;
       }
+      lapTimeSummaryCheckboxManager.setStructure({
+        selectAllElement: selectAllCheckbox,
+        items: summaryCheckboxItems
+      });
+      lapTimeSummaryCheckboxManager.render();
     }
 
     // Handle window resize for lap time chart
@@ -5686,40 +5740,6 @@ function replaceSelectedDrivers(drivers, options = {}) {
     }
 
     setupTyreDegFilterListeners();
-
-    // Generic helper for "select all" checkbox behavior in tables
-    function attachSelectAllCheckbox({
-      checkboxId,
-      groupsMap,
-      selectedSet,
-      onChange
-    }) {
-      const selectAllCheckbox = document.getElementById(checkboxId);
-      if (!selectAllCheckbox) return;
-
-      // Remove previous listeners by replacing node
-      const newCheckbox = selectAllCheckbox.cloneNode(true);
-      selectAllCheckbox.parentNode.replaceChild(newCheckbox, selectAllCheckbox);
-
-      newCheckbox.addEventListener('change', function() {
-        if (this.checked) {
-          groupsMap.forEach((_, key) => selectedSet.add(key));
-        } else {
-          groupsMap.forEach((_, key) => selectedSet.delete(key));
-        }
-        // selectedSet is already updated directly, no need to save
-        onChange();
-      });
-
-      // Update checked / indeterminate state
-      let visibleSelectedCount = 0;
-      groupsMap.forEach((_, key) => {
-        if (selectedSet.has(key)) visibleSelectedCount++;
-      });
-
-      newCheckbox.checked = groupsMap.size > 0 && visibleSelectedCount === groupsMap.size;
-      newCheckbox.indeterminate = visibleSelectedCount > 0 && visibleSelectedCount < groupsMap.size;
-    }
 
     // Generic helper for header dropdown filtering in tables
     function attachHeaderDropdowns({
@@ -6074,6 +6094,8 @@ function replaceSelectedDrivers(drivers, options = {}) {
         return parseInt(groupA.lap_Stint) - parseInt(groupB.lap_Stint);
       });
 
+      const tableSelectionItems = [];
+
       sortedGroups.forEach(([key, group]) => {
         const tr = document.createElement('tr');
         if (appState.tyreDeg.selectedStints.has(key)) {
@@ -6085,20 +6107,9 @@ function replaceSelectedDrivers(drivers, options = {}) {
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'stint-checkbox';
-        checkbox.checked = appState.tyreDeg.selectedStints.has(key);
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) {
-            appState.tyreDeg.selectedStints.add(key);
-            tr.classList.add('stint-selected');
-          } else {
-            appState.tyreDeg.selectedStints.delete(key);
-            tr.classList.remove('stint-selected');
-          }
-          renderTyreDegScatterChart();
-          renderTyreDegLapTimeChart();
-        });
         tdCheckbox.appendChild(checkbox);
         tr.appendChild(tdCheckbox);
+        tableSelectionItems.push({ key, checkbox, rowElement: tr });
 
         // Event
         const tdEvent = document.createElement('td');
@@ -6185,7 +6196,7 @@ function replaceSelectedDrivers(drivers, options = {}) {
         tr.addEventListener('click', (e) => {
           if (e.target !== checkbox) {
             checkbox.checked = !checkbox.checked;
-            checkbox.dispatchEvent(new Event('change'));
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
           }
         });
 
@@ -6196,17 +6207,24 @@ function replaceSelectedDrivers(drivers, options = {}) {
       tyreDegStintsTableContainer.innerHTML = '';
       tyreDegStintsTableContainer.appendChild(table);
 
-      // Attach select all checkbox listener
-      attachSelectAllCheckbox({
-        checkboxId: 'tyreDegSelectAllCheckbox',
-        groupsMap: tyreDegFilteredGroups,
-        selectedSet: appState.tyreDeg.selectedStints,
-        onChange: () => {
-          renderTyreDegStintsTable();
-          renderTyreDegScatterChart();
-          renderTyreDegLapTimeChart();
-        }
+      const selectAllCheckbox = table.querySelector('#tyreDegSelectAllCheckbox');
+      if (!tyreDegSelectionManager) {
+        tyreDegSelectionManager = new TableCheckboxManager({
+          selectAllId: 'tyreDegSelectAllCheckbox',
+          getSelectionSet: () => appState.tyreDeg.selectedStints,
+          selectionUpdater: (mutator) => mutator(appState.tyreDeg.selectedStints),
+          selectedClass: 'stint-selected'
+        });
+      }
+      tyreDegSelectionManager.onSelectionChange = () => {
+        renderTyreDegScatterChart();
+        renderTyreDegLapTimeChart();
+      };
+      tyreDegSelectionManager.setStructure({
+        selectAllElement: selectAllCheckbox,
+        items: tableSelectionItems
       });
+      tyreDegSelectionManager.render();
 
       // Attach clickable header listeners
       attachTyreDegHeaderDropdownListeners();
@@ -7167,30 +7185,20 @@ function replaceSelectedDrivers(drivers, options = {}) {
       // Body
       const tbody = document.createElement('tbody');
 
+      const tableSelectionItems = [];
+
       sortedGroups.forEach(([key, group]) => {
         const tr = document.createElement('tr');
-        if (appState.fuelEffect.selectedRows.has(key)) {
-          tr.classList.add('stint-selected');
-        }
+        tr.classList.toggle('stint-selected', appState.fuelEffect.selectedRows.has(key));
 
         // Select checkbox
         const tdCheckbox = document.createElement('td');
         const checkbox = document.createElement('input');
         checkbox.type = 'checkbox';
         checkbox.className = 'stint-checkbox';
-        checkbox.checked = appState.fuelEffect.selectedRows.has(key);
-        checkbox.addEventListener('change', () => {
-          if (checkbox.checked) {
-            appState.fuelEffect.selectedRows.add(key);
-            tr.classList.add('stint-selected');
-          } else {
-            appState.fuelEffect.selectedRows.delete(key);
-            tr.classList.remove('stint-selected');
-          }
-          renderFuelEffectScatterPlot(sortedGroups);
-        });
         tdCheckbox.appendChild(checkbox);
         tr.appendChild(tdCheckbox);
+        tableSelectionItems.push({ key, checkbox, rowElement: tr });
 
         // Driver
         const tdDriver = document.createElement('td');
@@ -7224,7 +7232,7 @@ function replaceSelectedDrivers(drivers, options = {}) {
         tr.addEventListener('click', (e) => {
           if (e.target !== checkbox) {
             checkbox.checked = !checkbox.checked;
-            checkbox.dispatchEvent(new Event('change'));
+            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
           }
         });
 
@@ -7235,15 +7243,23 @@ function replaceSelectedDrivers(drivers, options = {}) {
       fuelEffectGroupsTableContainer.innerHTML = '';
       fuelEffectGroupsTableContainer.appendChild(table);
 
-      // Attach select all checkbox listener
-      attachSelectAllCheckbox({
-        checkboxId: 'fuelEffectSelectAllCheckbox',
-        groupsMap: fuelEffectFilteredGroups,
-        selectedSet: appState.fuelEffect.selectedRows,
-        onChange: () => {
-          displayFuelEffectGroupsTable(rows);
-        }
+      const selectAllCheckbox = table.querySelector('#fuelEffectSelectAllCheckbox');
+      if (!fuelEffectSelectionManager) {
+        fuelEffectSelectionManager = new TableCheckboxManager({
+          selectAllId: 'fuelEffectSelectAllCheckbox',
+          getSelectionSet: () => appState.fuelEffect.selectedRows,
+          selectionUpdater: (mutator) => mutator(appState.fuelEffect.selectedRows),
+          selectedClass: 'stint-selected'
+        });
+      }
+      fuelEffectSelectionManager.onSelectionChange = () => {
+        renderFuelEffectScatterPlot(sortedGroups);
+      };
+      fuelEffectSelectionManager.setStructure({
+        selectAllElement: selectAllCheckbox,
+        items: tableSelectionItems
       });
+      fuelEffectSelectionManager.render();
 
       // Attach clickable header listeners
       attachFuelEffectHeaderDropdownListeners();
