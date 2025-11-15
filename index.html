@@ -2882,35 +2882,40 @@
       }
 
       // Apply circuit config once for the new session (before initializing any panels)
+      // Only apply config values if appState still has default values (not overridden by URL params)
       const circuitName = currentSessionData.length > 0 ? String(currentSessionData[0].circuit_name || "").trim() : "";
       if (circuitName && circuitConfig[circuitName]) {
         const config = circuitConfig[circuitName];
 
         // Set lap time adjustments and sync to calculator tab
-        if (config["Hard Deg"] !== undefined) {
+        // Only apply if current value matches default (hasn't been overridden by URL params)
+        if (config["Hard Deg"] !== undefined && appState.paceModel.degHard === defaultAppState.paceModel.degHard) {
           const value = config["Hard Deg"];
           document.getElementById('degHard').value = value;
           document.getElementById('degHardValue').textContent = parseFloat(value).toFixed(3);
           const calculatorDegH = document.getElementById('calculatorDegH');
           if (calculatorDegH) calculatorDegH.value = value;
+          saveToState('paceModel.degHard', value);
         }
-        if (config["Medium Deg"] !== undefined) {
+        if (config["Medium Deg"] !== undefined && appState.paceModel.degMedium === defaultAppState.paceModel.degMedium) {
           const value = config["Medium Deg"];
           document.getElementById('degMedium').value = value;
           document.getElementById('degMediumValue').textContent = parseFloat(value).toFixed(3);
           const calculatorDegM = document.getElementById('calculatorDegM');
           if (calculatorDegM) calculatorDegM.value = value;
+          saveToState('paceModel.degMedium', value);
         }
-        if (config["Soft Deg"] !== undefined) {
+        if (config["Soft Deg"] !== undefined && appState.paceModel.degSoft === defaultAppState.paceModel.degSoft) {
           const value = config["Soft Deg"];
           document.getElementById('degSoft').value = value;
           document.getElementById('degSoftValue').textContent = parseFloat(value).toFixed(3);
           const calculatorDegS = document.getElementById('calculatorDegS');
           if (calculatorDegS) calculatorDegS.value = value;
+          saveToState('paceModel.degSoft', value);
         }
 
         // Set fuel effect for all tabs (synced)
-        if (config["Fuel Effect"] !== undefined) {
+        if (config["Fuel Effect"] !== undefined && appState.paceModel.fuelEffect === defaultAppState.paceModel.fuelEffect) {
           const fuelEffect = config["Fuel Effect"];
           document.getElementById('fuelEffect').value = fuelEffect;
           document.getElementById('fuelEffectValue').textContent = parseFloat(fuelEffect).toFixed(3);
@@ -2918,6 +2923,7 @@
           document.getElementById('tyreDegFuelEffectValue').textContent = parseFloat(fuelEffect).toFixed(3);
           const calculatorFuelEffect = document.getElementById('calculatorFuelEffect');
           if (calculatorFuelEffect) calculatorFuelEffect.value = fuelEffect;
+          saveToState('paceModel.fuelEffect', fuelEffect);
         }
       }
 
