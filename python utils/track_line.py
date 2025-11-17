@@ -419,6 +419,88 @@ def fit_speed_profile(s, v, smooth_window=21, smooth_polyorder=3, prominence=1.0
 
     return speed_model, segments
 
+
+def smooth_1d(y, window=15, polyorder=3):
+    """
+    Light Savitzky-Golay smoothing for noisy signals.
+    window must be odd and > polyorder.
+    """
+    y = np.asarray(y)
+    n = len(y)
+    if n < window:
+        window = n if n % 2 == 1 else n - 1
+    if window <= polyorder:
+        window = polyorder + 1 if (polyorder + 1) % 2 == 1 else polyorder + 2
+    window = min(window, n if n % 2 == 1 else n - 1)
+    return scipy.signal.savgol_filter(y, window_length=window, polyorder=polyorder, mode="interp")
+
+
+def fit_speed_profile_spline(t_track, v_car, smooth_factor=1e-3, weight_accel=3.0):
+    """
+    Fit a smooth speed profile v(t) using a cubic smoothing spline.
+
+    Parameters
+    ----------
+    t_track : array-like, shape (N,)
+        Monotonic lap parameter; can be in [0,1] or any monotonic range.
+    v_car : array-like, shape (N,)
+        Speed values for that lap.
+    smooth_factor : float
+        Smoothing strength for UnivariateSpline (relative). Larger -> smoother.
+        We'll scale it by N to make it less dependent on sample count.
+    weight_accel : float
+        Extra weight where |dv/dt| is large (braking/accel zones) so the spline
+        follows sharp features better.
+
+    Returns
+    -------
+    speed_model : callable
+        speed_model(t_query) -> fitted speed values on given lap parameter.
+    spline : scipy.interpolate.UnivariateSpline
+        The underlying spline object, if you want to inspect/modify it.
+    """
+    t_track = np.asarray(t_track, dtype=float)
+    v_car = np.asarray(v_car, dtype=float)
+
+    assert t_track.shape == v_car.shape
+
+    # 1. Normalize parameter to [0,1] for numerical stability
+    t_min, t_max = t_track[0], t_track[-1]
+    t_norm = (t_track - t_min) / (t_max - t_min + 1e-12)
+
+    # 2. Light pre-smoothing to kill GPS jitter but keep shape
+    v_smooth = smooth_1d(v_car, window=15, polyorder=3)
+
+    # 3. Compute gradient to detect sharp accel/braking regions
+    dv_dt = np.gradient(v_smooth, t_norm)
+    grad_mag = np.abs(dv_dt)
+
+    # 4. Build weights: higher weight where |dv/dt| is big
+    #    This makes the spline "hug" sharp braking/accel changes.
+    grad_norm = grad_mag / (np.max(grad_mag) + 1e-12)
+    w = 1.0 + weight_accel * grad_norm
+
+    # 5. Fit cubic smoothing spline
+    #    UnivariateSpline's smoothing parameter `s` ~ sum(w * residual^2).
+    N = len(t_norm)
+    s = smooth_factor * N  # scale by N so tuning is easier across datasets
+
+    spline = scipy.interpolate.UnivariateSpline(t_norm, v_smooth, w=w, k=3, s=s)
+
+    def speed_model(t_query):
+        """
+        Evaluate fitted speed profile at any parameter t_query on this lap.
+        Accepts scalar or array in same units/range as t_track.
+        """
+        tq = np.asarray(t_query, dtype=float)
+        tq_norm = (tq - t_min) / (t_max - t_min + 1e-12)
+        # clamp to [0,1] just in case
+        tq_norm = np.clip(tq_norm, 0.0, 1.0)
+        return spline(tq_norm)
+
+    return speed_model, spline
+
+
 def main():
     laps = get_pos_data()
     track, tck, s_grid, centerline = fit_track_centerline([x["pos_data"]["coords"] for x in laps.values()])
@@ -461,10 +543,21 @@ def main():
         
         dists, idxes = tree.query(car_data_coords, k=1)
 
+        params = np.array([i/(len(t_plot)-1) for i in idxes])
+        speeds = lap_info["car_data"]["speed"]
+
+        # sort the params and make sure speeds are in the same order
+        sorted_indices = np.argsort(params)
+        params = params[sorted_indices]
+        speeds = speeds[sorted_indices]
+
         speed_profiles[driver] = {
-            "param": np.array([i/(len(t_plot)-1) for i in idxes]),
-            "speed": lap_info["car_data"]["speed"],
+            "param": params,
+            "speed": speeds,
         }
+
+        # sort
+
         # for i,idx in enumerate(idxes):            
         #     speed = lap_info["car_data"]["speed"][i]
         #     print(f"{idx}|{speed}")
@@ -477,7 +570,8 @@ def main():
     # make_plot(lines)
 
     speed_profile = speed_profiles["RUS"]
-    speed_model, segments = fit_speed_profile(speed_profile["param"], speed_profile["speed"], smooth_window=21, smooth_polyorder=3, prominence=2.0)
+    # speed_model, segments = fit_speed_profile(speed_profile["param"], speed_profile["speed"], smooth_window=21, smooth_polyorder=3, prominence=2.0)
+    speed_model, spline = fit_speed_profile_spline(speed_profile["param"], speed_profile["speed"], smooth_factor=1e-3, weight_accel=3.0)
 
     s_dense = np.linspace(0, 1, 3000)
     v_fit = speed_model(s_dense)
