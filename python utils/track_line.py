@@ -435,7 +435,7 @@ def smooth_1d(y, window=15, polyorder=3):
     return scipy.signal.savgol_filter(y, window_length=window, polyorder=polyorder, mode="interp")
 
 
-def fit_speed_profile_spline(t_track, v_car, smooth_factor=1e-3, weight_accel=3.0):
+def fit_speed_profile_spline(t_track, v_car, smooth_factor=1e-1, weight_accel=10.0):
     """
     Fit a smooth speed profile v(t) using a cubic smoothing spline.
 
@@ -469,7 +469,7 @@ def fit_speed_profile_spline(t_track, v_car, smooth_factor=1e-3, weight_accel=3.
     t_norm = (t_track - t_min) / (t_max - t_min + 1e-12)
 
     # 2. Light pre-smoothing to kill GPS jitter but keep shape
-    v_smooth = smooth_1d(v_car, window=15, polyorder=3)
+    v_smooth = smooth_1d(v_car, window=11, polyorder=3)
 
     # 3. Compute gradient to detect sharp accel/braking regions
     dv_dt = np.gradient(v_smooth, t_norm)
