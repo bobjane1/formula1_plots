@@ -1,9 +1,9 @@
-import numpy as np
 import fastf1
 import my_f1_utils # cache
 import numpy as np
-from scipy.signal import savgol_filter
-from scipy.interpolate import splprep, splev
+import scipy.signal
+import scipy.interpolate
+import scipy.spatial   # <-- add this
 import matplotlib.pyplot as plt
 
 def get_pos_data():
@@ -17,7 +17,8 @@ def get_pos_data():
         lap = driver_laps.pick_fastest()
         pos_data = lap.get_pos_data(pad=1, pad_side='both')
         lap_coords = [pos_data[c].to_numpy()/10 for c in ["X", "Y", "Z"]]
-        ans[driver] = np.stack(lap_coords, axis=1)
+        lap_times = pos_data["Time"].dt.total_seconds().to_numpy()
+        ans[driver] = {"coords": np.stack(lap_coords, axis=1), "times": lap_times}
     return ans
 
 def _smooth_lap(points, window_length, polyorder):
@@ -28,7 +29,10 @@ def _smooth_lap(points, window_length, polyorder):
 
     smoothed = np.empty_like(points)
     for dim in range(3):
-        smoothed[:, dim] = savgol_filter(points[:, dim], window_length=window_length, polyorder=polyorder, mode="interp")
+        smoothed[:, dim] = scipy.signal.savgol_filter(points[:, dim],
+                                                      window_length=window_length,
+                                                      polyorder=polyorder,
+                                                      mode="interp")
     return smoothed
 
 def _arc_length_parameterize(points):
@@ -65,31 +69,6 @@ def fit_track_centerline(
 ):
     """
     Fit a smooth, closed 3D spline representing the track centerline.
-
-    Parameters
-    ----------
-    laps : list of array-like
-        Each element is an array of shape (N_i, 3) with columns (x, y, z)
-        for one complete lap in order.
-    n_centerline_points : int
-        Number of points used to estimate the centerline before spline fit.
-    smooth_window : int
-        Savitzky-Golay filter window length (samples).
-    smooth_polyorder : int
-        Savitzky-Golay polynomial order.
-    spline_smooth : float
-        Smoothing factor for splprep (larger → smoother spline).
-
-    Returns
-    -------
-    track : callable
-        track(t) → (x, y, z) for t in [0, 1).
-    tck : tuple
-        Spline representation as returned by scipy.interpolate.splprep.
-    s_grid : ndarray
-        Normalized arc-length grid used to build the centerline.
-    centerline_points : ndarray
-        Array of shape (n_centerline_points, 3) with the averaged centerline.
     """
     # 1. Smooth each lap
     smoothed_laps = [
@@ -110,14 +89,13 @@ def fit_track_centerline(
     # 4. Average across laps to get a centerline (approx track center)
     centerline_points = np.mean(np.stack(resampled_laps, axis=0), axis=0)
 
-    # Ensure closed curve by forcing last point equal to first
-    if np.linalg.norm(centerline_points[0] - centerline_points[-1]) > 1e-6:
-        centerline_points[-1] = centerline_points[0]
+    # Ensure closed curve by forcing last point equal to first (averaged)
+    centerline_points[-1] = (centerline_points[-1] + centerline_points[0]) / 2
+    centerline_points[0] = centerline_points[-1]
 
     # 5. Fit a periodic B-spline in 3D
     x, y, z = centerline_points.T
-    # u is the parameter, tck is the spline; per=True enforces periodicity
-    tck, u = splprep([x, y, z], s=spline_smooth, per=True)
+    tck, u = scipy.interpolate.splprep([x, y, z], s=spline_smooth, per=True)
 
     # 6. Build a convenient callable
     def track(t):
@@ -126,7 +104,7 @@ def fit_track_centerline(
         Returns an array of shape (..., 3).
         """
         t = np.mod(t, 1.0)  # wrap around
-        x_t, y_t, z_t = splev(t, tck)
+        x_t, y_t, z_t = scipy.interpolate.splev(t, tck)
         return np.stack([np.array(x_t), np.array(y_t), np.array(z_t)], axis=-1)
 
     return track, tck, s_grid, centerline_points
@@ -183,11 +161,6 @@ class PanZoomHandler:
 
 def make_plot(lines):
     fig, ax = plt.subplots()
-    # for lap in laps:
-    #     ax.plot(lap[:, 0], lap[:, 1], alpha=0.3, label="raw lap" if lap is laps[0] else None)
-    # ax.plot(centerline[:, 0], centerline[:, 1], "o", ms=3, label="avg centerline pts")
-    # ax.plot(track_points[:, 0], track_points[:, 1], "-", lw=2, label="fitted spline")
-
     for label, line in lines.items():
         ax.plot(line["vals"][:, 0], line["vals"][:, 1], label=label, **line["options"])
     ax.set_aspect("equal", adjustable="box")
@@ -198,24 +171,39 @@ def make_plot(lines):
 
 def main():
     laps = get_pos_data()
-    track, tck, s_grid, centerline = fit_track_centerline(list(laps.values()))
-    t_plot = np.linspace(0, 1, 1000)
+    track, tck, s_grid, centerline = fit_track_centerline([x["coords"] for x in laps.values()])
+
+    # dense sample of the spline to build a KD-tree for fast projection
+    t_plot = np.linspace(0, 1, 5000)  # denser sample for better projection accuracy
     track_points = track(t_plot)
 
-    # make_plot(lines)
-    
-    window_length = 11
-    polyorder = 7
+    # KD-tree on the spline samples (3D)
+    tree = scipy.spatial.cKDTree(track_points)
 
     lines = {}
     for driver, lap in laps.items():
-        # if driver != "SAI": continue
-        smooth_lap = _smooth_lap(lap, window_length, polyorder)
-        lines[f"{driver}1"] = {"vals": lap, "options": {"alpha": 0.5, "marker": "o", "ms": 2}}
-        # lines[f"{driver}2"] = {"vals": smooth_lap, "options": {"marker": "o", "linestyle": "-", "lw": 2, "ms": 2}}
+        # raw lap
+        if driver != "NOR": continue
 
-    lines["avg centerline pts"] = {"vals": centerline, "options": {"marker": "o", "ms": 5}}
-    lines["fitted spline"] = {"vals": track_points, "options": {"linestyle": "-", "lw": 2, "color": "black", "marker": "o", "ms": 5}}
+        lines[f"{driver}1"] = {
+            "vals": lap["coords"],
+            "options": {"alpha": 0.5, "marker": "o", "ms": 2}
+        }
+
+        # projected_lap: nearest spline sample for each lap point
+        dists, idx = tree.query(lap["coords"], k=1)   # lap shape (N,3)
+        projected_lap = track_points[idx]   # shape (N,3)
+
+        lines[f"{driver}2"] = {
+            "vals": projected_lap,
+            "options": {"alpha": 0.5, "marker": "x", "ms": 2}
+        }
+
+    lines["fitted spline"] = {
+        "vals": track_points,
+        "options": {"linestyle": "-", "lw": 2, "color": "black", "marker": "o", "ms": 3}
+    }
+
     make_plot(lines)
 
 main()
