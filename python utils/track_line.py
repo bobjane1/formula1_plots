@@ -198,21 +198,21 @@ def main():
 
     lines = {}
     for driver, lap_info in laps.items():
-        if driver != "SAI": continue
+        # if driver != "SAI": continue
 
-        lines[f"{driver}1"] = {
-            "vals": lap_info["pos_data"]["coords"],
-            "options": {"alpha": 0.5, "marker": "o", "ms": 2}
-        }
+        # lines[f"{driver}1"] = {
+        #     "vals": lap_info["pos_data"]["coords"],
+        #     "options": {"alpha": 0.5, "marker": "o", "ms": 2}
+        # }
 
         # projected_lap: nearest spline sample for each lap point
         dists, idx = tree.query(lap_info["pos_data"]["coords"], k=1)   # lap shape (N,3)
-        projected_lap = track_points[idx]   # shape (N,3)
+        # projected_lap = track_points[idx]   # shape (N,3)
 
-        lines[f"{driver}2"] = {
-            "vals": projected_lap,
-            "options": {"alpha": 0.5, "marker": "x", "ms": 2}
-        }
+        # lines[f"{driver}2"] = {
+        #     "vals": projected_lap,
+        #     "options": {"alpha": 0.5, "marker": "x", "ms": 2}
+        # }
 
         # for li in range(len(lap["coords"])):
             # print(f"{driver}|{lap['times'][li]}|{idx[li]}|{projected_lap[li,0]}|{projected_lap[li,1]}|{projected_lap[li,2]}|{lap['coords'][li,0]}|{lap['coords'][li,1]}|{lap['coords'][li,2]}|{dists[li]}")
@@ -223,17 +223,317 @@ def main():
             coords = np.apply_along_axis(lambda col: np.interp(t_car, lap_info["pos_data"]["times"], col), 0, lap_info["pos_data"]["coords"])
             car_data_coords.append(coords)
             # print(f"{driver}|{t_car}|{coords[0]}|{coords[1]}|{coords[2]}|{lap_info['car_data']['speed'][idx]}")
+        
         dists, idxes = tree.query(car_data_coords, k=1)
 
         for i,idx in enumerate(idxes):            
             speed = lap_info["car_data"]["speed"][i]
             print(f"{idx}|{speed}")
 
-    lines["fitted spline"] = {
-        "vals": track_points,
-        "options": {"linestyle": "-", "lw": 2, "color": "black", "marker": "o", "ms": 3}
-    }
+    # lines["fitted spline"] = {
+    #     "vals": track_points,
+    #     "options": {"linestyle": "-", "lw": 2, "color": "black", "marker": "o", "ms": 3}
+    # }
 
     # make_plot(lines)
 
 main()
+
+
+
+# import numpy as np
+# from dataclasses import dataclass
+# from typing import List, Callable
+
+# import scipy.signal
+# import scipy.optimize
+
+
+# @dataclass
+# class Segment:
+#     s0: float
+#     s1: float
+#     kind: str              # "accel", "brake", or "corner"
+#     params: np.ndarray     # fitted parameters
+
+
+# def smooth_speed(v, window=21, polyorder=3):
+#     """
+#     Light smoothing for noisy speed. window must be odd.
+#     """
+#     v = np.asarray(v)
+#     window = min(window, len(v) - (1 - len(v) % 2))
+#     if window <= polyorder:
+#         window = polyorder + 1 if (polyorder + 1) % 2 == 1 else polyorder + 2
+#     return scipy.signal.savgol_filter(v, window_length=window, polyorder=polyorder)
+
+
+# def find_extrema(s, v_smooth, prominence=1.0):
+#     """
+#     Find local maxima (peaks) and minima (troughs) of the speed profile.
+#     Returns indices of extrema sorted along s.
+#     """
+#     peaks, _ = scipy.signal.find_peaks(v_smooth, prominence=prominence)
+#     troughs, _ = scipy.signal.find_peaks(-v_smooth, prominence=prominence)
+
+#     extrema_idx = np.concatenate([peaks, troughs])
+#     extrema_idx = np.unique(extrema_idx)
+#     extrema_idx.sort()
+
+#     # Ensure start and end are included
+#     if 0 not in extrema_idx:
+#         extrema_idx = np.insert(extrema_idx, 0, 0)
+#     if len(v_smooth) - 1 not in extrema_idx:
+#         extrema_idx = np.append(extrema_idx, len(v_smooth) - 1)
+
+#     return extrema_idx
+
+
+# # --- Segment models ----------------------------------------------------
+
+# def accel_model(s, v0, v_inf, k, s0, s1):
+#     """
+#     Drag-limited acceleration model on [s0, s1] (normalized internal variable).
+#         v(s) = v_inf - (v_inf - v0) * exp(-k * u),  u in [0,1]
+#     """
+#     u = (s - s0) / (s1 - s0 + 1e-12)
+#     u = np.clip(u, 0.0, 1.0)
+#     return v_inf - (v_inf - v0) * np.exp(-k * u)
+
+
+# def brake_model(s, v0, v_corner, k, s0, s1):
+#     """
+#     Exponential braking model on [s0, s1]:
+#         v(s) = v_corner + (v0 - v_corner) * exp(-k * u),  u in [0,1]
+#     """
+#     u = (s - s0) / (s1 - s0 + 1e-12)
+#     u = np.clip(u, 0.0, 1.0)
+#     return v_corner + (v0 - v_corner) * np.exp(-k * u)
+
+
+# def corner_model(s, a0, a1, a2, a3, s0, s1):
+#     """
+#     Cubic polynomial over [s0, s1]:
+#         v(s) = a0 + a1*u + a2*u^2 + a3*u^3,  u in [0,1]
+#     """
+#     u = (s - s0) / (s1 - s0 + 1e-12)
+#     u = np.clip(u, 0.0, 1.0)
+#     return a0 + a1*u + a2*u**2 + a3*u**3
+
+
+# def fit_segment(s_seg, v_seg, kind):
+#     """
+#     Fit parameters for a segment of given type.
+#     """
+#     s0, s1 = float(s_seg[0]), float(s_seg[-1])
+#     v0, v1 = float(v_seg[0]), float(v_seg[-1])
+
+#     # Normalize s for numerical stability (still pass s0,s1 into the model)
+#     s_seg = np.asarray(s_seg)
+#     v_seg = np.asarray(v_seg)
+
+#     if kind == "accel":
+#         # initial guesses
+#         v_inf0 = max(v_seg.max(), v1 + 1.0)
+#         k0 = 5.0
+#         p0 = [v0, v_inf0, k0]
+
+#         def f(s, v0_, v_inf_, k_):
+#             return accel_model(s, v0_, v_inf_, k_, s0, s1)
+
+#         params, _ = scipy.optimize.curve_fit(f, s_seg, v_seg, p0=p0, maxfev=5000)
+
+#     elif kind == "brake":
+#         v_corner0 = min(v_seg.min(), v1 - 1.0)
+#         k0 = 10.0
+#         p0 = [v0, v_corner0, k0]
+
+#         def f(s, v0_, v_corner_, k_):
+#             return brake_model(s, v0_, v_corner_, k_, s0, s1)
+
+#         params, _ = scipy.optimize.curve_fit(f, s_seg, v_seg, p0=p0, maxfev=5000)
+
+#     elif kind == "corner":
+#         # Fit cubic polynomial least squares on u in [0,1]
+#         u = (s_seg - s0) / (s1 - s0 + 1e-12)
+#         A = np.vstack([np.ones_like(u), u, u**2, u**3]).T
+#         params, *_ = np.linalg.lstsq(A, v_seg, rcond=None)
+#     else:
+#         raise ValueError(f"Unknown segment kind: {kind}")
+
+#     return np.array(params, dtype=float)
+
+
+# def classify_segment(v0, v1, dv_mean, dv_threshold=1.5, decel_threshold=-0.5, accel_threshold=0.5):
+#     """
+#     Simple heuristic to classify a segment as accel/brake/corner.
+#     dv_mean is mean dv/ds over the segment (approx).
+#     """
+#     dv = v1 - v0
+#     if dv < -dv_threshold and dv_mean < decel_threshold:
+#         return "brake"
+#     elif dv > dv_threshold and dv_mean > accel_threshold:
+#         return "accel"
+#     else:
+#         return "corner"
+
+
+# # --- Main fitting function ---------------------------------------------
+
+# def fit_speed_profile(s, v, smooth_window=21, smooth_polyorder=3, prominence=1.0):
+#     """
+#     Fit a composite physics-inspired speed profile v(s).
+
+#     Parameters
+#     ----------
+#     s : array-like, shape (N,)
+#         Monotonic lap parameter (e.g. in [0,1]).
+#     v : array-like, shape (N,)
+#         Speed values.
+#     smooth_window, smooth_polyorder : int
+#         Parameters for Savitzky-Golay smoothing.
+#     prominence : float
+#         Prominence for peak/trough detection (tune per circuit).
+
+#     Returns
+#     -------
+#     speed_model : callable
+#         speed_model(s_query) -> fitted speed values.
+#     segments : list of Segment
+#         Fitted segments with parameters (for debugging/analysis).
+#     """
+#     s = np.asarray(s, dtype=float)
+#     v = np.asarray(v, dtype=float)
+
+#     # Normalize s to [0,1] for robustness (store original if you want)
+#     s_min, s_max = s[0], s[-1]
+#     s_norm = (s - s_min) / (s_max - s_min + 1e-12)
+
+#     # Smooth speed
+#     v_smooth = smooth_speed(v, window=smooth_window, polyorder=smooth_polyorder)
+
+#     # Find extrema to define segments
+#     extrema_idx = find_extrema(s_norm, v_smooth, prominence=prominence)
+
+#     segments: List[Segment] = []
+
+#     for i in range(len(extrema_idx) - 1):
+#         i0 = extrema_idx[i]
+#         i1 = extrema_idx[i + 1]
+#         if i1 <= i0 + 2:
+#             continue  # too short
+
+#         s_seg = s_norm[i0:i1 + 1]
+#         v_seg = v_smooth[i0:i1 + 1]
+
+#         v0, v1 = float(v_seg[0]), float(v_seg[-1])
+#         dv_mean = (v_seg[-1] - v_seg[0]) / (s_seg[-1] - s_seg[0] + 1e-12)
+
+#         kind = classify_segment(v0, v1, dv_mean)
+
+#         params = fit_segment(s_seg, v_seg, kind)
+#         segments.append(Segment(s0=float(s_seg[0]), s1=float(s_seg[-1]), kind=kind, params=params))
+
+#     # Ensure coverage: sort by s0
+#     segments.sort(key=lambda seg: seg.s0)
+
+#     # small fix: expand first/last to exactly 0 and 1
+#     if segments:
+#         segments[0].s0 = 0.0
+#         segments[-1].s1 = 1.0
+
+#     def speed_model(s_query):
+#         """
+#         Evaluate fitted speed profile at s_query (scalar or array).
+#         """
+#         sq = np.asarray(s_query, dtype=float)
+#         sq_norm = (sq - s_min) / (s_max - s_min + 1e-12)
+
+#         # clip to [0,1]
+#         sq_norm = np.clip(sq_norm, 0.0, 1.0)
+
+#         out = np.empty_like(sq_norm, dtype=float)
+
+#         # For each point, find containing segment (linear scan is fine for N~1000; use binary search if needed)
+#         for idx, s_val in np.ndenumerate(sq_norm):
+#             # find segment where s0 <= s_val <= s1
+#             seg = None
+#             for seg_candidate in segments:
+#                 if seg_candidate.s0 - 1e-9 <= s_val <= seg_candidate.s1 + 1e-9:
+#                     seg = seg_candidate
+#                     break
+#             if seg is None:
+#                 # fallback: nearest segment
+#                 seg = min(segments, key=lambda sg: min(abs(s_val - sg.s0), abs(s_val - sg.s1)))
+
+#             if seg.kind == "accel":
+#                 v_val = accel_model(s_val, *seg.params, seg.s0, seg.s1)
+#             elif seg.kind == "brake":
+#                 v_val = brake_model(s_val, *seg.params, seg.s0, seg.s1)
+#             else:  # "corner"
+#                 v_val = corner_model(s_val, *seg.params, seg.s0, seg.s1)
+
+#             out[idx] = v_val
+
+#         return out
+
+#     return speed_model, segments
+
+
+# # ----------------------------------------------------------------------
+# # Example usage (with fake data)
+# # ----------------------------------------------------------------------
+# if __name__ == "__main__":
+#     import matplotlib.pyplot as plt
+
+#     # Fake lap parameter and synthetic speed profile to show behavior
+#     N = 2000
+#     s = np.linspace(0, 1, N)
+
+#     # Build a toy speed profile: accel -> brake -> corner -> accel -> long straight
+#     v = np.zeros_like(s)
+
+#     # Segment 1: acceleration to 280
+#     mask1 = (s >= 0.0) & (s < 0.2)
+#     u1 = (s[mask1] - s[mask1].min()) / (s[mask1].ptp() + 1e-12)
+#     v[mask1] = 80 + (280 - 80) * (1 - np.exp(-5 * u1))
+
+#     # Segment 2: hard braking to 110
+#     mask2 = (s >= 0.2) & (s < 0.28)
+#     u2 = (s[mask2] - s[mask2].min()) / (s[mask2].ptp() + 1e-12)
+#     v[mask2] = 110 + (280 - 110) * np.exp(-12 * u2)
+
+#     # Segment 3: corner with S-like profile
+#     mask3 = (s >= 0.28) & (s < 0.4)
+#     u3 = (s[mask3] - s[mask3].min()) / (s[mask3].ptp() + 1e-12)
+#     v[mask3] = 110 + 20 * (1 - (2*u3 - 1)**2)
+
+#     # Segment 4: accel out of corner to 310
+#     mask4 = (s >= 0.4) & (s < 0.7)
+#     u4 = (s[mask4] - s[mask4].min()) / (s[mask4].ptp() + 1e-12)
+#     v[mask4] = 110 + (310 - 110) * (1 - np.exp(-4 * u4))
+
+#     # Segment 5: long straight saturating at ~330
+#     mask5 = (s >= 0.7) & (s <= 1.0)
+#     u5 = (s[mask5] - s[mask5].min()) / (s[mask5].ptp() + 1e-12)
+#     v[mask5] = 220 + (330 - 220) * (1 - np.exp(-6 * u5))
+
+#     # Add some noise
+#     rng = np.random.default_rng(0)
+#     v_noisy = v + rng.normal(scale=2.0, size=v.shape)
+
+#     speed_model, segments = fit_speed_profile(s, v_noisy, smooth_window=21, smooth_polyorder=3, prominence=2.0)
+
+#     s_dense = np.linspace(0, 1, 3000)
+#     v_fit = speed_model(s_dense)
+
+#     plt.figure(figsize=(10, 4))
+#     plt.plot(s, v_noisy, alpha=0.3, label="noisy data")
+#     plt.plot(s, v, "--", label="ground truth (toy)")
+#     plt.plot(s_dense, v_fit, lw=2, label="fitted profile")
+#     plt.xlabel("lap parameter s")
+#     plt.ylabel("speed")
+#     plt.legend()
+#     plt.grid(True, alpha=0.3)
+#     plt.tight_layout()
+#     plt.show()
