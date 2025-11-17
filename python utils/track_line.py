@@ -11,39 +11,25 @@ def get_pos_data():
     session.load()
     laps = session.laps.split_qualifying_sessions()[2]
     drivers = laps["Driver"].unique()
-    ans = []
+    ans = {}
     for driver in drivers:
         driver_laps = laps.pick_drivers(driver)
         lap = driver_laps.pick_fastest()
         pos_data = lap.get_pos_data(pad=1, pad_side='both')
         lap_coords = [pos_data[c].to_numpy()/10 for c in ["X", "Y", "Z"]]
-        ans.append(np.stack(lap_coords, axis=1))
+        ans[driver] = np.stack(lap_coords, axis=1)
     return ans
 
 def _smooth_lap(points, window_length, polyorder):
-    """
-    Smooth a single lap (N,3) with a Savitzky-Golay filter.
-    """
-    points = np.asarray(points)
-    n = len(points)
-    if n < 5:
-        return points
-
-    # window_length must be odd and <= n
-    window_length = min(window_length, n - (1 - n % 2))
-    if window_length < polyorder + 2:
-        window_length = polyorder + 2 + (1 - (polyorder + 2) % 2)
-
-    window_length = min(window_length, n - (1 - n % 2))
+    assert len(points) > 21 # arbitrary
+    assert window_length % 2 == 1
+    assert window_length <= len(points)
+    assert (polyorder+2) < window_length
 
     smoothed = np.empty_like(points)
     for dim in range(3):
-        smoothed[:, dim] = savgol_filter(points[:, dim],
-                                         window_length=window_length,
-                                         polyorder=polyorder,
-                                         mode="interp")
+        smoothed[:, dim] = savgol_filter(points[:, dim], window_length=window_length, polyorder=polyorder, mode="interp")
     return smoothed
-
 
 def _arc_length_parameterize(points):
     """
@@ -72,10 +58,10 @@ def _resample_lap(points, s_norm, s_grid):
 
 def fit_track_centerline(
     laps,
-    n_centerline_points=500,
-    smooth_window=21,
-    smooth_polyorder=3,
-    spline_smooth=0.5,
+    n_centerline_points=1000,
+    smooth_window=11,
+    smooth_polyorder=7,
+    spline_smooth=0.1,
 ):
     """
     Fit a smooth, closed 3D spline representing the track centerline.
@@ -105,10 +91,6 @@ def fit_track_centerline(
     centerline_points : ndarray
         Array of shape (n_centerline_points, 3) with the averaged centerline.
     """
-    if isinstance(laps, np.ndarray):
-        # Allow a single lap as a plain (N,3) array
-        laps = [laps]
-
     # 1. Smooth each lap
     smoothed_laps = [
         _smooth_lap(np.asarray(lap), window_length=smooth_window, polyorder=smooth_polyorder)
@@ -199,21 +181,41 @@ class PanZoomHandler:
     def on_release(self, event):
         self.press = None
 
-def main():
-    laps = get_pos_data()
-    track, tck, s_grid, centerline = fit_track_centerline(laps)
-    t_plot = np.linspace(0, 1, 1000)
-    track_points = track(t_plot)
+def make_plot(lines):
     fig, ax = plt.subplots()
-    for lap in laps:
-        ax.plot(lap[:, 0], lap[:, 1], alpha=0.3, label="raw lap" if lap is laps[0] else None)
-    ax.plot(centerline[:, 0], centerline[:, 1], "o", ms=3, label="avg centerline pts")
-    ax.plot(track_points[:, 0], track_points[:, 1], "-", lw=2, label="fitted spline")
+    # for lap in laps:
+    #     ax.plot(lap[:, 0], lap[:, 1], alpha=0.3, label="raw lap" if lap is laps[0] else None)
+    # ax.plot(centerline[:, 0], centerline[:, 1], "o", ms=3, label="avg centerline pts")
+    # ax.plot(track_points[:, 0], track_points[:, 1], "-", lw=2, label="fitted spline")
+
+    for label, line in lines.items():
+        ax.plot(line["vals"][:, 0], line["vals"][:, 1], label=label, **line["options"])
     ax.set_aspect("equal", adjustable="box")
     ax.legend()
     ax.set_title("Track fitting from noisy GPS laps")
     PanZoomHandler(ax)
     plt.show()
 
+def main():
+    laps = get_pos_data()
+    track, tck, s_grid, centerline = fit_track_centerline(list(laps.values()))
+    t_plot = np.linspace(0, 1, 1000)
+    track_points = track(t_plot)
+
+    # make_plot(lines)
+    
+    window_length = 11
+    polyorder = 7
+
+    lines = {}
+    for driver, lap in laps.items():
+        # if driver != "SAI": continue
+        smooth_lap = _smooth_lap(lap, window_length, polyorder)
+        lines[f"{driver}1"] = {"vals": lap, "options": {"alpha": 0.5, "marker": "o", "ms": 2}}
+        # lines[f"{driver}2"] = {"vals": smooth_lap, "options": {"marker": "o", "linestyle": "-", "lw": 2, "ms": 2}}
+
+    lines["avg centerline pts"] = {"vals": centerline, "options": {"marker": "o", "ms": 5}}
+    lines["fitted spline"] = {"vals": track_points, "options": {"linestyle": "-", "lw": 2, "color": "black", "marker": "o", "ms": 5}}
+    make_plot(lines)
 
 main()
