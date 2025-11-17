@@ -14,11 +14,27 @@ def get_pos_data():
     ans = {}
     for driver in drivers:
         driver_laps = laps.pick_drivers(driver)
+        # driver_laps = driver_laps[driver_laps["LapNumber"] != 24]
         lap = driver_laps.pick_fastest()
+        
         pos_data = lap.get_pos_data(pad=1, pad_side='both')
-        lap_coords = [pos_data[c].to_numpy()/10 for c in ["X", "Y", "Z"]]
-        lap_times = pos_data["Time"].dt.total_seconds().to_numpy()
-        ans[driver] = {"coords": np.stack(lap_coords, axis=1), "times": lap_times}
+        pos_coords = [pos_data[c].to_numpy()/10 for c in ["X", "Y", "Z"]]
+        pos_t = pos_data["Time"].dt.total_seconds().to_numpy()
+
+        car_data = lap.get_car_data(pad=1, pad_side='both')
+        car_t = car_data["Time"].dt.total_seconds().to_numpy()
+        car_speed = car_data["Speed"].to_numpy()
+        
+        # if driver == "RUS":
+            # print(lap["LapNumber"])
+            # print(f"{driver}|{lap['LapTime'].total_seconds()}|{lap['Sector1Time'].total_seconds()}|{lap['Sector2Time'].total_seconds()}|{lap['Sector3Time'].total_seconds()}")
+            # for row in car_data.itertuples():
+                # print(f"{row.Time.total_seconds()}|{row.Speed}|{row.Throttle}|{row.Brake}|{row.nGear}|{row.RPM}|{row.DRS}")
+
+        ans[driver] = {
+            "pos_data": {"coords": np.stack(pos_coords, axis=1), "times": pos_t},
+            "car_data": {"speed": car_speed, "times": car_t},
+        }
     return ans
 
 def _smooth_lap(points, window_length, polyorder):
@@ -171,27 +187,26 @@ def make_plot(lines):
 
 def main():
     laps = get_pos_data()
-    track, tck, s_grid, centerline = fit_track_centerline([x["coords"] for x in laps.values()])
+    track, tck, s_grid, centerline = fit_track_centerline([x["pos_data"]["coords"] for x in laps.values()])
 
     # dense sample of the spline to build a KD-tree for fast projection
-    t_plot = np.linspace(0, 1, 5000)  # denser sample for better projection accuracy
+    t_plot = np.linspace(0, 1, 10000)  # denser sample for better projection accuracy
     track_points = track(t_plot)
 
     # KD-tree on the spline samples (3D)
     tree = scipy.spatial.cKDTree(track_points)
 
     lines = {}
-    for driver, lap in laps.items():
-        # raw lap
-        if driver != "NOR": continue
+    for driver, lap_info in laps.items():
+        if driver != "SAI": continue
 
         lines[f"{driver}1"] = {
-            "vals": lap["coords"],
+            "vals": lap_info["pos_data"]["coords"],
             "options": {"alpha": 0.5, "marker": "o", "ms": 2}
         }
 
         # projected_lap: nearest spline sample for each lap point
-        dists, idx = tree.query(lap["coords"], k=1)   # lap shape (N,3)
+        dists, idx = tree.query(lap_info["pos_data"]["coords"], k=1)   # lap shape (N,3)
         projected_lap = track_points[idx]   # shape (N,3)
 
         lines[f"{driver}2"] = {
@@ -199,11 +214,26 @@ def main():
             "options": {"alpha": 0.5, "marker": "x", "ms": 2}
         }
 
+        # for li in range(len(lap["coords"])):
+            # print(f"{driver}|{lap['times'][li]}|{idx[li]}|{projected_lap[li,0]}|{projected_lap[li,1]}|{projected_lap[li,2]}|{lap['coords'][li,0]}|{lap['coords'][li,1]}|{lap['coords'][li,2]}|{dists[li]}")
+
+        car_data_coords = []
+        for idx in range(len(lap_info["car_data"]["times"])):
+            t_car = lap_info["car_data"]["times"][idx]
+            coords = np.apply_along_axis(lambda col: np.interp(t_car, lap_info["pos_data"]["times"], col), 0, lap_info["pos_data"]["coords"])
+            car_data_coords.append(coords)
+            # print(f"{driver}|{t_car}|{coords[0]}|{coords[1]}|{coords[2]}|{lap_info['car_data']['speed'][idx]}")
+        dists, idxes = tree.query(car_data_coords, k=1)
+
+        for i,idx in enumerate(idxes):            
+            speed = lap_info["car_data"]["speed"][i]
+            print(f"{idx}|{speed}")
+
     lines["fitted spline"] = {
         "vals": track_points,
         "options": {"linestyle": "-", "lw": 2, "color": "black", "marker": "o", "ms": 3}
     }
 
-    make_plot(lines)
+    # make_plot(lines)
 
 main()
