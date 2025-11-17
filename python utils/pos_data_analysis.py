@@ -2,6 +2,7 @@ import numpy as np
 import fastf1
 import my_f1_utils # cache
 
+
 def optimize_t(raw_ts, xs, ys, speeds):
     segment_distances = np.sqrt(np.diff(xs)**2 + np.diff(ys)**2)
     tadj = raw_ts.copy()
