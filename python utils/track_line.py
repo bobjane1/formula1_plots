@@ -291,11 +291,16 @@ def fit_speed_profile_piecewise_pchip(
         if i1 <= i0 + 1:
             continue  # too short
 
+        # inside your loop over segments
         s_seg = s[i0:i1 + 1]
         v_seg = v_car[i0:i1 + 1]
 
+        s_seg_u, v_seg_u = deduplicate_x(s_seg, v_seg, reducer="mean")
+        if len(s_seg_u) < 2:
+            continue  # not enough points after dedup
+
         # PCHIP is shape-preserving and can't overshoot between points
-        interp = PchipInterpolator(s_seg, v_seg)
+        interp = PchipInterpolator(s_seg_u, v_seg_u)
         segments.append(SpeedSegment(float(s_seg[0]), float(s_seg[-1]), interp))
 
     if not segments:
@@ -337,6 +342,36 @@ def fit_speed_profile_piecewise_pchip(
 
     return speed_model, segments
 
+def deduplicate_x(x, y, reducer="mean"):
+    """
+    Given x, y with possibly repeated x-values, return x_unique, y_agg
+    with strictly increasing x suitable for PchipInterpolator.
+
+    reducer: "mean" or "median"
+    """
+    x = np.asarray(x, dtype=float)
+    y = np.asarray(y, dtype=float)
+
+    # sort by x so equal values are adjacent
+    order = np.argsort(x)
+    x_sorted = x[order]
+    y_sorted = y[order]
+
+    # unique x and inverse index mapping
+    x_unique, inv = np.unique(x_sorted, return_inverse=True)
+
+    if reducer == "mean":
+        # aggregate with bincount for speed
+        sums = np.bincount(inv, weights=y_sorted)
+        counts = np.bincount(inv)
+        y_agg = sums / counts
+    else:  # "median" (slower, but more robust)
+        y_agg = np.empty_like(x_unique)
+        for i in range(len(x_unique)):
+            y_agg[i] = np.median(y_sorted[inv == i])
+
+    return x_unique, y_agg
+
 
 def main():
     laps = get_pos_data()
@@ -352,7 +387,7 @@ def main():
     speed_profiles = {}
     lines = {}
     for driver, lap_info in laps.items():
-        # if driver != "RUS": continue
+        # if driver != "VER": continue
         if driver == "HAM": continue
 
         # lines[f"{driver}1"] = {
@@ -425,7 +460,7 @@ def main():
     v_fit = speed_model(s_dense)
 
     plt.figure(figsize=(10, 4))
-    plt.plot(params, speeds, alpha=0.3, label="noisy data")    
+    plt.plot(params, speeds, alpha=0.7, label="noisy data")    
     plt.plot(s_dense, v_fit, lw=2, label="fitted profile")
     plt.xlabel("lap parameter s")
     plt.ylabel("speed")
