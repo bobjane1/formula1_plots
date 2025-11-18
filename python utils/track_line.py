@@ -29,11 +29,11 @@ def get_pos_data():
         car_t = car_data["Time"].dt.total_seconds().to_numpy()
         car_speed = car_data["Speed"].to_numpy()
         
-        # if driver == "RUS":
+        # if driver == "PIA":
             # print(lap["LapNumber"])
-        # print(f"{driver}|{lap['LapTime'].total_seconds()}|{lap['Sector1Time'].total_seconds()}|{lap['Sector2Time'].total_seconds()}|{lap['Sector3Time'].total_seconds()}")
-        # for row in car_data.itertuples():
-        #     print(f"{row.Time.total_seconds()}|{row.Speed}|{row.Throttle}|{row.Brake}|{row.nGear}|{row.RPM}|{row.DRS}")
+        print(f"{driver}|{lap['LapTime'].total_seconds()}|{lap['Sector1Time'].total_seconds()}|{lap['Sector2Time'].total_seconds()}|{lap['Sector3Time'].total_seconds()}")
+            # for row in car_data.itertuples():
+                # print(f"{row.Time.total_seconds()}|{row.Speed}|{row.Throttle}|{row.Brake}|{row.nGear}|{row.RPM}|{row.DRS}")
 
         ans[driver] = {
             "pos_data": {"coords": np.stack(pos_coords, axis=1), "times": pos_t},
@@ -375,8 +375,8 @@ def main():
         acc = np.gradient(lap_info["car_data"]["speed"], lap_info["car_data"]["times"])/3.6/9.81  # g's
         lines[driver] = {
             # "vals": np.column_stack([speed_profiles[driver]["param"], speed_profiles[driver]["speed"]]),
-            # "vals": np.column_stack([lap_info["car_data"]["times"], lap_info["car_data"]["speed"]]),
-            "vals": np.column_stack([lap_info["car_data"]["times"], acc]),
+            "vals": np.column_stack([lap_info["car_data"]["times"], lap_info["car_data"]["speed"]]),
+            # "vals": np.column_stack([lap_info["car_data"]["times"], acc]),
             "options": {"alpha": 0.7, "marker": "o", "ms": 3}
         }
 
@@ -391,7 +391,7 @@ def main():
     #     "options": {"linestyle": "-", "lw": 2, "color": "black", "marker": "o", "ms": 3}
     # }
 
-    make_plot(lines)
+    # make_plot(lines)
 
     # speed_profile = speed_profiles["RUS"]
     # params = speed_profile["param"]
