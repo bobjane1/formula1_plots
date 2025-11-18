@@ -8,7 +8,6 @@ import matplotlib.pyplot as plt
 from dataclasses import dataclass
 from typing import List, Callable
 from typing import List
-from scipy.signal import find_peaks
 from scipy.interpolate import PchipInterpolator
 
 def get_pos_data():
@@ -32,9 +31,9 @@ def get_pos_data():
         
         # if driver == "RUS":
             # print(lap["LapNumber"])
-            # print(f"{driver}|{lap['LapTime'].total_seconds()}|{lap['Sector1Time'].total_seconds()}|{lap['Sector2Time'].total_seconds()}|{lap['Sector3Time'].total_seconds()}")
-            # for row in car_data.itertuples():
-                # print(f"{row.Time.total_seconds()}|{row.Speed}|{row.Throttle}|{row.Brake}|{row.nGear}|{row.RPM}|{row.DRS}")
+        # print(f"{driver}|{lap['LapTime'].total_seconds()}|{lap['Sector1Time'].total_seconds()}|{lap['Sector2Time'].total_seconds()}|{lap['Sector3Time'].total_seconds()}")
+        # for row in car_data.itertuples():
+        #     print(f"{row.Time.total_seconds()}|{row.Speed}|{row.Throttle}|{row.Brake}|{row.nGear}|{row.RPM}|{row.DRS}")
 
         ans[driver] = {
             "pos_data": {"coords": np.stack(pos_coords, axis=1), "times": pos_t},
@@ -130,64 +129,13 @@ def fit_track_centerline(
 
     return track, tck, s_grid, centerline_points
 
-
-class PanZoomHandler:
-    """
-    Simple matplotlib event handler that enables mouse drag panning and scroll zooming.
-    """
-
-    def __init__(self, ax, base_scale=1.2):
-        self.ax = ax
-        self.base_scale = base_scale
-        self.press = None
-        self.cid_scroll = ax.figure.canvas.mpl_connect("scroll_event", self.on_scroll)
-        self.cid_press = ax.figure.canvas.mpl_connect("button_press_event", self.on_press)
-        self.cid_release = ax.figure.canvas.mpl_connect("button_release_event", self.on_release)
-        self.cid_motion = ax.figure.canvas.mpl_connect("motion_notify_event", self.on_motion)
-
-    def on_scroll(self, event):
-        if event.inaxes != self.ax:
-            return
-        cur_xlim = self.ax.get_xlim()
-        cur_ylim = self.ax.get_ylim()
-        xdata = event.xdata if event.xdata is not None else (cur_xlim[0] + cur_xlim[1]) / 2
-        ydata = event.ydata if event.ydata is not None else (cur_ylim[0] + cur_ylim[1]) / 2
-        scale_factor = 1 / self.base_scale if event.button == "up" else self.base_scale
-        width = (cur_xlim[1] - cur_xlim[0]) * scale_factor
-        height = (cur_ylim[1] - cur_ylim[0]) * scale_factor
-        relx = (xdata - cur_xlim[0]) / (cur_xlim[1] - cur_xlim[0]) if cur_xlim[1] != cur_xlim[0] else 0.5
-        rely = (ydata - cur_ylim[0]) / (cur_ylim[1] - cur_ylim[0]) if cur_ylim[1] != cur_ylim[0] else 0.5
-        self.ax.set_xlim(xdata - relx * width, xdata + (1 - relx) * width)
-        self.ax.set_ylim(ydata - rely * height, ydata + (1 - rely) * height)
-        self.ax.figure.canvas.draw_idle()
-
-    def on_press(self, event):
-        if event.inaxes != self.ax or event.button != 1 or event.xdata is None or event.ydata is None:
-            return
-        self.press = (event.xdata, event.ydata)
-        self.x0, self.x1 = self.ax.get_xlim()
-        self.y0, self.y1 = self.ax.get_ylim()
-
-    def on_motion(self, event):
-        if self.press is None or event.inaxes != self.ax or event.xdata is None or event.ydata is None:
-            return
-        dx = event.xdata - self.press[0]
-        dy = event.ydata - self.press[1]
-        self.ax.set_xlim(self.x0 - dx, self.x1 - dx)
-        self.ax.set_ylim(self.y0 - dy, self.y1 - dy)
-        self.ax.figure.canvas.draw_idle()
-
-    def on_release(self, event):
-        self.press = None
-
 def make_plot(lines):
     fig, ax = plt.subplots()
     for label, line in lines.items():
         ax.plot(line["vals"][:, 0], line["vals"][:, 1], label=label, **line["options"])
-    ax.set_aspect("equal", adjustable="box")
+    ax.set_aspect("auto")
     ax.legend()
     ax.set_title("Track fitting from noisy GPS laps")
-    PanZoomHandler(ax)
     plt.show()
 
 # ====== TRYING DIFFERENT MODELS
@@ -220,7 +168,7 @@ def _find_breakpoints_raw(s, v, grad_frac=0.4, min_seg_len=10):
     thr = grad_frac * gmax
 
     # peaks in |dv/ds| correspond to strong braking/accel events
-    peaks, _ = find_peaks(abs_grad, height=thr, distance=min_seg_len)
+    peaks, _ = scipy.signal.find_peaks(abs_grad, height=thr, distance=min_seg_len)
 
     # turn peaks into break indices
     break_idx = [0]
@@ -387,7 +335,7 @@ def main():
     speed_profiles = {}
     lines = {}
     for driver, lap_info in laps.items():
-        # if driver != "VER": continue
+        if driver not in ["RUS", "SAI", "PIA"]: continue
         if driver == "HAM": continue
 
         # lines[f"{driver}1"] = {
@@ -420,6 +368,17 @@ def main():
             "param": np.array([i/(len(t_plot)-1) for i in idxes]),
             "speed": lap_info["car_data"]["speed"],
         }
+        sorted_indices = np.argsort(speed_profiles[driver]["param"])
+        speed_profiles[driver]["param"] = speed_profiles[driver]["param"][sorted_indices]
+        speed_profiles[driver]["speed"] = speed_profiles[driver]["speed"][sorted_indices]
+
+        acc = np.gradient(lap_info["car_data"]["speed"], lap_info["car_data"]["times"])/3.6/9.81  # g's
+        lines[driver] = {
+            # "vals": np.column_stack([speed_profiles[driver]["param"], speed_profiles[driver]["speed"]]),
+            # "vals": np.column_stack([lap_info["car_data"]["times"], lap_info["car_data"]["speed"]]),
+            "vals": np.column_stack([lap_info["car_data"]["times"], acc]),
+            "options": {"alpha": 0.7, "marker": "o", "ms": 3}
+        }
 
         # sort
 
@@ -432,7 +391,7 @@ def main():
     #     "options": {"linestyle": "-", "lw": 2, "color": "black", "marker": "o", "ms": 3}
     # }
 
-    # make_plot(lines)
+    make_plot(lines)
 
     # speed_profile = speed_profiles["RUS"]
     # params = speed_profile["param"]
@@ -449,24 +408,24 @@ def main():
     # speed_model, spline = fit_speed_profile_spline(speed_profile["param"], speed_profile["speed"], smooth_factor=1e-3, weight_accel=3.0)
 
 
-    speed_model, segments = fit_speed_profile_piecewise_pchip(
-        params,
-        speeds,
-        grad_frac=0.6,   # tweak this to change how aggressively you split
-        min_seg_len=15,  # avoid tiny segments
-    )
+    # speed_model, segments = fit_speed_profile_piecewise_pchip(
+    #     params,
+    #     speeds,
+    #     grad_frac=0.6,   # tweak this to change how aggressively you split
+    #     min_seg_len=15,  # avoid tiny segments
+    # )
 
-    s_dense = np.linspace(0, 1, 3000)
-    v_fit = speed_model(s_dense)
+    # s_dense = np.linspace(0, 1, 3000)
+    # v_fit = speed_model(s_dense)
 
-    plt.figure(figsize=(10, 4))
-    plt.plot(params, speeds, alpha=0.7, label="noisy data")    
-    plt.plot(s_dense, v_fit, lw=2, label="fitted profile")
-    plt.xlabel("lap parameter s")
-    plt.ylabel("speed")
-    plt.legend()
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    plt.show()
+    # plt.figure(figsize=(10, 4))
+    # plt.plot(params, speeds, alpha=0.7, label="noisy data")    
+    # plt.plot(s_dense, v_fit, lw=2, label="fitted profile")
+    # plt.xlabel("lap parameter s")
+    # plt.ylabel("speed")
+    # plt.legend()
+    # plt.grid(True, alpha=0.3)
+    # plt.tight_layout()
+    # plt.show()
 
 main()
