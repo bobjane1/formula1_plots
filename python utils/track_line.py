@@ -31,7 +31,7 @@ def get_pos_data():
         
         # if driver == "PIA":
             # print(lap["LapNumber"])
-        print(f"{driver}|{lap['LapTime'].total_seconds()}|{lap['Sector1Time'].total_seconds()}|{lap['Sector2Time'].total_seconds()}|{lap['Sector3Time'].total_seconds()}")
+        # print(f"{driver}|{lap['LapTime'].total_seconds()}|{lap['Sector1Time'].total_seconds()}|{lap['Sector2Time'].total_seconds()}|{lap['Sector3Time'].total_seconds()}")
             # for row in car_data.itertuples():
                 # print(f"{row.Time.total_seconds()}|{row.Speed}|{row.Throttle}|{row.Brake}|{row.nGear}|{row.RPM}|{row.DRS}")
 
@@ -335,7 +335,7 @@ def main():
     speed_profiles = {}
     lines = {}
     for driver, lap_info in laps.items():
-        if driver not in ["RUS", "SAI", "PIA"]: continue
+        if driver not in ["RUS", "SAI"]: continue
         if driver == "HAM": continue
 
         # lines[f"{driver}1"] = {
@@ -344,7 +344,7 @@ def main():
         # }
 
         # projected_lap: nearest spline sample for each lap point
-        dists, idx = tree.query(lap_info["pos_data"]["coords"], k=1)   # lap shape (N,3)
+        car_data_dists, idx = tree.query(lap_info["pos_data"]["coords"], k=1)   # lap shape (N,3)
         # projected_lap = track_points[idx]   # shape (N,3)
 
         # lines[f"{driver}2"] = {
@@ -361,22 +361,36 @@ def main():
             coords = np.apply_along_axis(lambda col: np.interp(t_car, lap_info["pos_data"]["times"], col), 0, lap_info["pos_data"]["coords"])
             car_data_coords.append(coords)
             # print(f"{driver}|{t_car}|{coords[0]}|{coords[1]}|{coords[2]}|{lap_info['car_data']['speed'][idx]}")
-        
-        dists, idxes = tree.query(car_data_coords, k=1)
+
+        pos_data_times = lap_info["pos_data"]["times"]      
+        pos_data_dists, pos_data_idxes = tree.query(lap_info["pos_data"]["coords"], k=1)       
+        pos_data_params = pos_data_idxes / (len(t_plot)-1)
+        sorted_pos_indices = np.argsort(pos_data_times)
+        pos_data_params = pos_data_params[sorted_pos_indices]
+        pos_data_times = pos_data_times[sorted_pos_indices]
+
+        car_data_times = lap_info["car_data"]["times"]
+        car_data_dists, car_data_idxes = tree.query(car_data_coords, k=1)
+        car_data_params = car_data_idxes / (len(t_plot)-1)
+        car_data_speeds = lap_info["car_data"]["speed"]
+        car_data_acc = np.gradient(lap_info["car_data"]["speed"], lap_info["car_data"]["times"])/3.6/9.81  # g's
+
+        sorted_car_indices = np.argsort(car_data_times)
+        car_data_params = car_data_params[sorted_car_indices]
+        car_data_times = car_data_times[sorted_car_indices]
+        car_data_speeds = car_data_speeds[sorted_car_indices]
+        car_data_acc = car_data_acc[sorted_car_indices]
 
         speed_profiles[driver] = {
-            "param": np.array([i/(len(t_plot)-1) for i in idxes]),
-            "speed": lap_info["car_data"]["speed"],
+            "param": car_data_params,
+            "speed": car_data_speeds,
         }
-        sorted_indices = np.argsort(speed_profiles[driver]["param"])
-        speed_profiles[driver]["param"] = speed_profiles[driver]["param"][sorted_indices]
-        speed_profiles[driver]["speed"] = speed_profiles[driver]["speed"][sorted_indices]
-
-        acc = np.gradient(lap_info["car_data"]["speed"], lap_info["car_data"]["times"])/3.6/9.81  # g's
+        
         lines[driver] = {
-            # "vals": np.column_stack([speed_profiles[driver]["param"], speed_profiles[driver]["speed"]]),
-            "vals": np.column_stack([lap_info["car_data"]["times"], lap_info["car_data"]["speed"]]),
-            # "vals": np.column_stack([lap_info["car_data"]["times"], acc]),
+            # "vals": np.column_stack([pos_data_times, pos_data_params]),
+            # "vals": np.column_stack([car_data_params, car_data_speeds]),
+            "vals": np.column_stack([car_data_times, car_data_params]),
+            # "vals": np.column_stack([car_data_times, car_data_acc]),
             "options": {"alpha": 0.7, "marker": "o", "ms": 3}
         }
 
@@ -391,7 +405,7 @@ def main():
     #     "options": {"linestyle": "-", "lw": 2, "color": "black", "marker": "o", "ms": 3}
     # }
 
-    # make_plot(lines)
+    make_plot(lines)
 
     # speed_profile = speed_profiles["RUS"]
     # params = speed_profile["param"]
