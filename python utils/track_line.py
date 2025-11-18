@@ -29,7 +29,7 @@ def get_pos_data():
         car_t = car_data["Time"].dt.total_seconds().to_numpy()
         car_speed = car_data["Speed"].to_numpy()
         
-        # if driver == "PIA":
+        # if driver == "SAI":
             # print(lap["LapNumber"])
         # print(f"{driver}|{lap['LapTime'].total_seconds()}|{lap['Sector1Time'].total_seconds()}|{lap['Sector2Time'].total_seconds()}|{lap['Sector3Time'].total_seconds()}")
             # for row in car_data.itertuples():
@@ -389,10 +389,16 @@ def main():
         lines[driver] = {
             # "vals": np.column_stack([pos_data_times, pos_data_params]),
             # "vals": np.column_stack([car_data_params, car_data_speeds]),
-            "vals": np.column_stack([car_data_times, car_data_params]),
+            # "vals": np.column_stack([car_data_times, car_data_params]),
+            "vals": np.column_stack([car_data_times, car_data_speeds]),
             # "vals": np.column_stack([car_data_times, car_data_acc]),
-            "options": {"alpha": 0.7, "marker": "o", "ms": 3}
+            "options": {"alpha": 1.0, "marker": "o", "ms": 2}
         }
+
+        # lines[driver+"_acc"] = {
+        #     "vals": np.column_stack([car_data_times, car_data_acc]),
+        #     "options": {"alpha": 1.0, "marker": "o", "ms": 2}
+        # }
 
         # sort
 
