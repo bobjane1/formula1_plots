@@ -37,7 +37,7 @@ for year in range(2025,2017,-1):
                 avg_speeds[sess_type] = np.mean(np.array(speeds), axis=1)
 
             avg_dist = np.sqrt(( avg_coords['R'] - avg_coords['Q'] )[:,0]**2 + ( avg_coords['R'] - avg_coords['Q'] )[:,1]**2 + ( avg_coords['R'] - avg_coords['Q'] )[:,2]**2 )
-            print(f"{year}|{round_no}|{circuit_name}|{'|'.join(map(str, avg_dist))}|{'}|'.join(map(str, avg_speeds['Q']))}")
+            print(f"{year}|{round_no}|{circuit_name}|{'|'.join(map(str, avg_dist))}|{'|'.join(map(str, avg_speeds['Q']))}")
         except Exception as e:
             # pass
             print(f"{year}|{round_no}|Error: {e}")
