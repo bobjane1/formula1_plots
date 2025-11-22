@@ -91,7 +91,7 @@ def find_consecutive_pairs(gaps_by_lap):
 
 def main():
     all_df = my_f1_utils.load_df()
-    year, round_no, session_type = 2024, 22, "R"
+    year, round_no, session_type = 2025, 21, "R"
     df = all_df[(all_df["year"] == year) & (all_df["round_no"] == round_no) & (all_df["session_type"] == session_type)]
 
     # get the unique lap_Team for each lap_Driver
@@ -110,7 +110,7 @@ def main():
         if team_map[pair["driver_front"]] == team_map[pair["driver_behind"]]: continue # same team
 
         # if pair["end_reason"]["type"] == "gap_grew": continue
-        print(f"{pair['driver_front']} ahead of {pair['driver_behind']} for {len(pair['gaps'])} laps (lap {pair['from_lap']}-{pair['end_lap']})")
+        print(f"{pair['driver_behind']} chasing {pair['driver_front']} for {len(pair['gaps'])} laps (lap {pair['from_lap']}-{pair['end_lap']})")
         print(f"  Gaps: {[f'{g:.3f}' for g in pair['gaps']]}")
         print(f"  End reason: {pair['end_reason']}")
         print()
