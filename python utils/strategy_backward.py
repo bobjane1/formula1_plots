@@ -206,13 +206,13 @@ def summarize_results(num_laps, compounds, fuel_effect, sc_prob_ranges, sc_lengt
     return results
     
 def main():
-    num_laps = 71
+    num_laps = 57
     compounds = [
-        {"type": "S", "pace": 75.0, "degradation": 0.08},
-        {"type": "M", "pace": 75.5, "degradation": 0.06},
-        {"type": "H", "pace": 76.5, "degradation": 0.02},
+        {"type": "H", "pace": 83.559, "degradation": 0.08},
+        {"type": "M", "pace": 83.167, "degradation": 0.09},
+        {"type": "S", "pace": 83.78, "degradation": 0.22},
     ]
-    fuel_effect = 0.018
+    fuel_effect = 0.08
     # sc_prob_ranges = [
     #     (1, 1, 0.261),
     #     (2, 2, 0.049),
@@ -220,10 +220,13 @@ def main():
     #     (4, None, 0.016),
     # ]
     sc_prob_ranges = [
-        (1, None, 0.0005),
+        (1, 1, 0.261),
+        (2, 2, 0.049),
+        (3, 3, 0.033),
+        (4, None, 0.016),
     ]
     sc_length = 5
-    pit_loss = 21.8
+    pit_loss = 27.824
 
     type_to_idx = {c["type"]: i for i, c in enumerate(compounds)}
     rule = TwoCompoundTyreRule(compound_indices=list(range(len(compounds))))
@@ -236,15 +239,15 @@ def main():
         print(f"  No-SC race time: {info['no_sc_time']}")
         print()    
 
-    # for pattern in [["S","M"], ["M","S"], ["S","M","S"]]:    
-    #     pattern_indices = [type_to_idx[t] for t in pattern]
-    #     rule = PatternUnlessSCTyreRule(pattern_indices, compound_indices=list(range(len(compounds))))
-    #     results = summarize_results(num_laps, compounds, fuel_effect, sc_prob_ranges, sc_length, pit_loss, rule)
-    #     print(f"=== Pattern unless SC {', '.join(pattern)} ===")
-    #     for start_comp, info in results.items():
-    #         print(f"  Expected time: {info['expected_time']}")
-    #         print(f"  No-SC optimal stints: {info['no_sc_stints']}")
-    #         print(f"  No-SC race time: {info['no_sc_time']}")
-    #         print()
+    for pattern in [["M", "H"], ["M", "S"], ["H", "M"], ["M", "H", "H"], ["H", "M", "M"]]:
+        pattern_indices = [type_to_idx[t] for t in pattern]
+        rule = PatternUnlessSCTyreRule(pattern_indices, compound_indices=list(range(len(compounds))))
+        results = summarize_results(num_laps, compounds, fuel_effect, sc_prob_ranges, sc_length, pit_loss, rule)
+        print(f"=== Pattern unless SC {', '.join(pattern)} ===")
+        for start_comp, info in results.items():
+            print(f"  Expected time: {info['expected_time']}")
+            print(f"  No-SC optimal stints: {info['no_sc_stints']}")
+            print(f"  No-SC race time: {info['no_sc_time']}")
+            print()
     
 main()
