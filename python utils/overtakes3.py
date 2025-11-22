@@ -1,9 +1,10 @@
-import my_f1_utils, numpy as np
+import my_f1_utils, numpy as np, pandas as pd
 
 def calc_gaps(df):
     sched_laps = my_f1_utils.get_uniq(df, "sched_laps")
     df = df[~df["lap_Position"].isna()]     # filter our laps with position na, those are dnfs
     gaps_by_lap = []
+    pit_stops_by_lap = []  # track pit stops for each lap
     for lap in range(1, sched_laps + 1):
         lap_df = df[df["lap_LapNumber"] == lap].sort_values(by=["lap_Position"])
         drivers = list(lap_df["lap_Driver"].values)
@@ -11,14 +12,23 @@ def calc_gaps(df):
         first_driver_time = lap_df.at[drivers[0], "lap_Time"]
         finish_times = [[drv, lap_df.at[drv, "lap_Time"] - first_driver_time] for drv in drivers]
         gaps_by_lap.append(finish_times)
-    return gaps_by_lap
 
-def battles(gaps_by_lap):
+        # Track which drivers pitted on this lap
+        pitted_drivers = set()
+        for drv in drivers:
+            if not pd.isna(lap_df.at[drv, "lap_PitInTime"]) or not pd.isna(lap_df.at[drv, "lap_PitOutTime"]):
+                pitted_drivers.add(drv)
+        pit_stops_by_lap.append(pitted_drivers)
+
+    return gaps_by_lap, pit_stops_by_lap
+
+def battles(gaps_by_lap, pit_stops_by_lap):
     ans = []
     active_pairs = {}  # key: (driver_front, driver_behind), value: {from_lap, gaps, last_positions}
 
     for lap_num, lap_data in enumerate(gaps_by_lap, start=1):
         current_pairs = set() # lap_data is list of [driver, gap_to_leader]
+        pitted_drivers = pit_stops_by_lap[lap_num - 1]  # get pit stops for this lap
 
         # Create position lookup for this lap
         driver_positions = {lap_data[i][0]: i + 1 for i in range(len(lap_data))}
@@ -52,7 +62,13 @@ def battles(gaps_by_lap):
 
                 # Determine why they're no longer consecutive
                 reason = None
-                if driver_front in driver_positions and driver_behind in driver_positions:
+
+                # Check if either driver pitted on this lap
+                if driver_front in pitted_drivers:
+                    reason = {"type": "pit_stop", "who_pitted": "front"}
+                elif driver_behind in pitted_drivers:
+                    reason = {"type": "pit_stop", "who_pitted": "behind"}
+                elif driver_front in driver_positions and driver_behind in driver_positions:
                     current_pos_front = driver_positions[driver_front]
                     current_pos_behind = driver_positions[driver_behind]
 
@@ -99,9 +115,9 @@ def main():
     for drv, drv_df in df.groupby("lap_Driver"):
         team_map[drv] = my_f1_utils.get_uniq(drv_df, "lap_Team")
     
-    gaps_by_lap = calc_gaps(df) # for each lap, list of [driver, gap to leader]
+    gaps_by_lap, pit_stops_by_lap = calc_gaps(df) # for each lap, list of [driver, gap to leader]
 
-    consecutive_pairs = battles(gaps_by_lap)
+    consecutive_pairs = battles(gaps_by_lap, pit_stops_by_lap)
 
     for pair in consecutive_pairs:
         if len(pair["gaps"]) < 3: continue # cashing for 3 laps
