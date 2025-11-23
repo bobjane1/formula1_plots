@@ -93,10 +93,19 @@
     }
 
     .tab-navigation #reloadDataBtn,
+    .tab-navigation #replayBtn,
     .tab-navigation #spoilerModeBtn {
       padding: 8px 16px;
       font-size: 12px;
       border-radius: 8px;
+    }
+
+    .tab-navigation #replayBtn.active {
+      background: var(--accent-color) !important;
+      color: #000 !important;
+      font-weight: 600;
+      border-color: var(--accent-color) !important;
+      box-shadow: 0 0 12px rgba(0, 224, 255, 0.4);
     }
 
     /* Session Selector */
@@ -115,6 +124,72 @@
     .small {
       color: var(--muted-color);
       font-size: 12px;
+    }
+
+    /* Replay Control Panel */
+    .replay-control-panel {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 24px;
+      margin-bottom: 16px;
+      padding: 12px 16px;
+      background: rgba(255, 255, 255, 0.02);
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+    }
+
+    .replay-slider-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .replay-slider {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--border-color);
+      outline: none;
+      -webkit-appearance: none;
+    }
+
+    .replay-time-display {
+      flex-shrink: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--accent-color);
+      font-family: 'Courier New', monospace;
+      min-width: 80px;
+      text-align: center;
+    }
+
+    .replay-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      cursor: pointer;
+    }
+
+    .replay-slider::-moz-range-thumb {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--accent-color);
+      cursor: pointer;
+      border: none;
+    }
+
+    .replay-session-info {
+      flex-shrink: 0;
+      color: var(--text-color);
+      font-size: 14px;
+      font-weight: 500;
+      white-space: nowrap;
     }
 
     select {
@@ -1559,6 +1634,38 @@
       </div>
     </div>
   </div>
+  <div id="replayOverlay" class="spoiler-overlay">
+    <div class="spoiler-modal">
+      <h2>Enable Replay Mode?</h2>
+      <p>Replay a session lap by lap.</p>
+      <div id="replayConfigSection" class="spoiler-config-grid">
+        <div class="spoiler-field">
+          <label for="replaySeasonSelect">Select session to replay</label>
+          <select id="replaySeasonSelect" disabled>
+            <option value="">Loading...</option>
+          </select>
+        </div>
+        <div class="spoiler-field">
+          <label for="replayGPSelect">Grand Prix</label>
+          <select id="replayGPSelect" disabled>
+            <option value="">Select a season first</option>
+          </select>
+        </div>
+        <div class="spoiler-field">
+          <label for="replaySessionSelect">Session</label>
+          <select id="replaySessionSelect" disabled>
+            <option value="">Select a race weekend</option>
+          </select>
+        </div>
+        <div class="spoiler-actions">
+          <button id="replaySaveBtn" class="spoiler-button">Start Replay</button>
+          <button id="replayCancelBtn" class="spoiler-button secondary">Cancel</button>
+          <button id="replayDisableBtn" class="spoiler-button link hidden">Exit Replay Mode</button>
+        </div>
+        <div id="replayConfigStatus" class="spoiler-status"></div>
+      </div>
+    </div>
+  </div>
   <div class="page-content">
   <div class="container">
     <!-- Tab Navigation -->
@@ -1573,12 +1680,13 @@
       <button class="tab-button" data-tab="track-temp" data-tooltip="Plots the mean track temperature vs lap">Track Temp</button>
       <span class="status-message" id="statusMessage">Loading...</span>
       <button id="reloadDataBtn" type="button" title="Reload data from server">Reload Data</button>
+      <button id="replayBtn" type="button" title="Replay session">Replay</button>
       <button id="spoilerModeBtn" type="button" title="Adjust spoiler settings">Spoiler</button>
       <button id="copyPermalinkBtn" type="button" data-tooltip="Copy permalink URL to clipboard">Permalink</button>
     </div>
 
     <!-- Session Selector (shared across all tabs) -->
-    <div class="session-selector">
+    <div id="sessionSelector" class="session-selector">
       <label class="small" for="seasonSel">Season</label>
       <select id="seasonSel" title="Season">
         <option value=""></option>
@@ -1591,6 +1699,19 @@
       <select id="sessionSel" title="Session type" disabled>
         <option value=""></option>
       </select>
+    </div>
+
+    <!-- Replay Control Panel (replaces session selector when replay mode is active) -->
+    <div id="replayControlPanel" class="replay-control-panel hidden">
+      <div class="replay-slider-container">
+        <input type="range" id="replaySlider" min="0" max="100" value="0" class="replay-slider" step="0.1">
+        <div class="replay-time-display">
+          <span id="replayCurrentTime">00:00:00</span>
+        </div>
+      </div>
+      <div class="replay-session-info">
+        <span id="replaySessionText">No session selected</span>
+      </div>
     </div>
 
     <!-- Strategy Panel -->
@@ -2108,6 +2229,7 @@
     const sessionSel = document.getElementById("sessionSel");
     const statusMessage = document.getElementById("statusMessage");
     const reloadDataBtn = document.getElementById("reloadDataBtn");
+    const replayBtn = document.getElementById("replayBtn");
     const spoilerModeBtn = document.getElementById("spoilerModeBtn");
     const spoilerOverlay = document.getElementById('spoilerOverlay');
     const spoilerChoiceSection = document.getElementById('spoilerChoiceSection');
@@ -2121,6 +2243,20 @@
     const spoilerBackBtn = document.getElementById('spoilerBackBtn');
     const spoilerDisableBtn = document.getElementById('spoilerDisableBtn');
     const spoilerConfigStatus = document.getElementById('spoilerConfigStatus');
+    const replayOverlay = document.getElementById('replayOverlay');
+    const replayConfigSection = document.getElementById('replayConfigSection');
+    const replaySeasonSelect = document.getElementById('replaySeasonSelect');
+    const replayGPSelect = document.getElementById('replayGPSelect');
+    const replaySessionSelect = document.getElementById('replaySessionSelect');
+    const replaySaveBtn = document.getElementById('replaySaveBtn');
+    const replayCancelBtn = document.getElementById('replayCancelBtn');
+    const replayDisableBtn = document.getElementById('replayDisableBtn');
+    const replayConfigStatus = document.getElementById('replayConfigStatus');
+    const sessionSelector = document.getElementById('sessionSelector');
+    const replayControlPanel = document.getElementById('replayControlPanel');
+    const replaySlider = document.getElementById('replaySlider');
+    const replaySessionText = document.getElementById('replaySessionText');
+    const replayCurrentTime = document.getElementById('replayCurrentTime');
 
     let allRows = [];
     let allRowsRaw = [];
@@ -2301,6 +2437,220 @@
         scProbRanges: [] // Array of {fromLap, toLap, probability}
       }
     };
+
+    // ============================================================================
+    // REPLAY MODE HELPERS
+    // ============================================================================
+
+    let replayConfig = {
+      enabled: false
+    };
+
+    function openReplayOverlay() {
+      if (!replayOverlay) return;
+      replayOverlay.classList.add('show');
+      document.body.style.overflow = 'hidden';
+      if (rawDataReady) {
+        if (replayConfig.enabled) {
+          // If replay is already on, populate with current UI session
+          const gpValue = appState.session.gp;
+          populateReplaySeasonOptions(appState.session.season, gpValue, appState.session.sessionType);
+        } else {
+          // Otherwise populate with latest session
+          populateReplaySeasonOptions();
+        }
+      }
+      if (replayConfig.enabled) {
+        replayDisableBtn.classList.remove('hidden');
+      }
+    }
+
+    function closeReplayOverlay() {
+      if (!replayOverlay) return;
+      replayOverlay.classList.remove('show');
+      document.body.style.overflow = '';
+    }
+
+    function updateReplayButtonState() {
+      if (!replayBtn) return;
+      replayBtn.textContent = replayConfig.enabled ? 'Replay: ON' : 'Replay';
+      if (replayConfig.enabled) {
+        replayBtn.classList.add('active');
+      } else {
+        replayBtn.classList.remove('active');
+      }
+    }
+
+    function formatSessionTime(seconds) {
+      const hours = Math.floor(seconds / 3600);
+      const minutes = Math.floor((seconds % 3600) / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+    }
+
+    function initializeReplaySlider() {
+      if (!replayConfig.enabled || !currentSessionData || currentSessionData.length === 0) {
+        return;
+      }
+
+      // Get max session time from current session data
+      const times = currentSessionData.map(r => parseFloat(r.lap_Time)).filter(t => !isNaN(t));
+      if (times.length === 0) return;
+
+      const maxTime = Math.max(...times);
+
+      replaySlider.min = 0;
+      replaySlider.max = maxTime;
+      replaySlider.value = 0;
+
+      updateReplayTimeDisplay(0);
+    }
+
+    function updateReplayTimeDisplay(time) {
+      if (replayCurrentTime) {
+        replayCurrentTime.textContent = formatSessionTime(time);
+      }
+    }
+
+    function toggleSessionSelector() {
+      if (replayConfig.enabled) {
+        sessionSelector.classList.add('hidden');
+        replayControlPanel.classList.remove('hidden');
+      } else {
+        sessionSelector.classList.remove('hidden');
+        replayControlPanel.classList.add('hidden');
+      }
+    }
+
+    function updateReplaySessionText() {
+      if (!replaySessionText || !replayConfig.enabled) return;
+      const season = appState.session.season;
+      const sessionType = appState.session.sessionType;
+      const gpValue = appState.session.gp;
+
+      if (season && gpValue && sessionType) {
+        // Extract meeting name from GP value (format: "round||meetingName")
+        const meetingName = gpValue.includes('||') ? gpValue.split('||')[1] : gpValue;
+        replaySessionText.textContent = `${season} ${meetingName} - ${sessionType}`;
+      } else {
+        replaySessionText.textContent = 'No session selected';
+      }
+    }
+
+    function populateReplaySeasonOptions(preferredSeason = null, preferredGP = null, preferredSession = null) {
+      if (!replaySeasonSelect) return;
+
+      const seasons = new Set();
+      fullSessionsByKey.forEach(value => {
+        if (value.year) seasons.add(value.year);
+      });
+      const sorted = Array.from(seasons).sort((a, b) => parseInt(b, 10) - parseInt(a, 10));
+
+      replaySeasonSelect.innerHTML = '<option value="">Select a season</option>';
+      sorted.forEach(season => {
+        const opt = document.createElement('option');
+        opt.value = season;
+        opt.textContent = season;
+        replaySeasonSelect.appendChild(opt);
+      });
+
+      replaySeasonSelect.disabled = sorted.length === 0;
+      if (sorted.length === 0) {
+        replayGPSelect.disabled = true;
+        replaySessionSelect.disabled = true;
+        replayGPSelect.innerHTML = '<option value="">Select a season first</option>';
+        replaySessionSelect.innerHTML = '<option value="">Select a race weekend</option>';
+        return;
+      }
+
+      // Use preferred season if provided and valid, otherwise use most recent
+      let targetSeason = preferredSeason && sorted.includes(preferredSeason) ? preferredSeason : sorted[0];
+      replaySeasonSelect.value = targetSeason;
+      populateReplayGPOptions(targetSeason, preferredGP, preferredSession);
+    }
+
+    function populateReplayGPOptions(season, preferredGP = null, preferredSession = null) {
+      if (!replayGPSelect) return;
+      replayGPSelect.innerHTML = '<option value="">Select a race weekend</option>';
+      replayGPSelect.disabled = true;
+      populateReplaySessionOptions('', '', '', null);
+      if (!season) return;
+
+      const gpEntries = new Map();
+      fullSessionsByKey.forEach(value => {
+        if (value.year === season) {
+          const round = parseInt(value.round_no, 10) || 0;
+          const key = `${round}||${value.meeting_name}`;
+          if (!gpEntries.has(key)) {
+            gpEntries.set(key, { round, meeting: value.meeting_name });
+          }
+        }
+      });
+
+      const sorted = Array.from(gpEntries.values()).sort((a, b) => a.round - b.round);
+      sorted.forEach(entry => {
+        const opt = document.createElement('option');
+        opt.value = `${entry.round}||${entry.meeting}`;
+        opt.textContent = `Round ${entry.round}: ${entry.meeting}`;
+        replayGPSelect.appendChild(opt);
+      });
+      replayGPSelect.disabled = sorted.length === 0;
+      if (sorted.length === 0) {
+        populateReplaySessionOptions('', '', '', null);
+        return;
+      }
+
+      // Use preferred GP if provided and valid, otherwise use most recent
+      let targetEntry = sorted[sorted.length - 1];
+      if (preferredGP) {
+        const [round, meeting] = preferredGP.split('||');
+        const found = sorted.find(entry => String(entry.round) === String(round) && entry.meeting === meeting);
+        if (found) {
+          targetEntry = found;
+        }
+      }
+      const targetOption = `${targetEntry.round}||${targetEntry.meeting}`;
+      replayGPSelect.value = targetOption;
+      populateReplaySessionOptions(season, targetEntry.round, targetEntry.meeting, preferredSession);
+    }
+
+    function populateReplaySessionOptions(season, round, meetingName, preferredSession = null) {
+      if (!replaySessionSelect) return;
+      replaySessionSelect.innerHTML = '<option value="">Select a session</option>';
+      replaySessionSelect.disabled = true;
+
+      if (!season || !round) return;
+
+      const sessions = new Set();
+      fullSessionsByKey.forEach(value => {
+        if (value.year === String(season) &&
+            String(value.round_no) === String(round) &&
+            (!meetingName || value.meeting_name === meetingName)) {
+          sessions.add(value.session_type);
+        }
+      });
+
+      const sortedSessions = Array.from(sessions).sort((a, b) => {
+        return getSessionOrderValue(a) - getSessionOrderValue(b);
+      });
+
+      sortedSessions.forEach(sessionType => {
+        const opt = document.createElement('option');
+        opt.value = sessionType;
+        opt.textContent = formatSessionLabel(sessionType);
+        replaySessionSelect.appendChild(opt);
+      });
+
+      replaySessionSelect.disabled = sortedSessions.length === 0;
+      if (sortedSessions.length > 0) {
+        // Use preferred session if provided and valid, otherwise use last session
+        let targetSession = sortedSessions[sortedSessions.length - 1];
+        if (preferredSession && sortedSessions.includes(preferredSession)) {
+          targetSession = preferredSession;
+        }
+        replaySessionSelect.value = targetSession;
+      }
+    }
 
     // ============================================================================
     // SPOILER MODE HELPERS
@@ -2661,6 +3011,61 @@
       maybeInitializeAfterPrereqs({ preserveSelection: false });
     }
 
+    function handleReplaySaveSelection() {
+      if (!replaySeasonSelect || !replayGPSelect || !replaySessionSelect) return;
+      const season = replaySeasonSelect.value;
+      const gpValue = replayGPSelect.value;
+      const sessionType = replaySessionSelect.value;
+
+      if (!season || !gpValue || !sessionType) {
+        if (replayConfigStatus) {
+          replayConfigStatus.textContent = 'Please select a season, Grand Prix, and session.';
+        }
+        return;
+      }
+
+      // Enable replay mode
+      replayConfig.enabled = true;
+
+      // Update main session selectors to match replay selection
+      seasonSel.value = season;
+      appState.session.season = season;
+
+      // Populate GPs for the selected season
+      UIHelpers.populateGPs(gpSel, sessionsByKey, season, {});
+      gpSel.value = gpValue;
+      appState.session.gp = gpValue;
+
+      // Populate sessions for the selected GP
+      UIHelpers.populateSessions(sessionSel, sessionsByKey, season, gpValue, {});
+      sessionSel.value = sessionType;
+      appState.session.sessionType = sessionType;
+
+      // Trigger session change to load data
+      onSessionChange();
+
+      updateReplayButtonState();
+      updateReplaySessionText();
+      toggleSessionSelector();
+      if (replayConfigStatus) replayConfigStatus.textContent = '';
+      closeReplayOverlay();
+
+      // Initialize slider with session time range
+      initializeReplaySlider();
+    }
+
+    function handleReplayCancelSelection() {
+      closeReplayOverlay();
+    }
+
+    function handleReplayDisable() {
+      // Disable replay mode (session stays the same, just show normal selector)
+      replayConfig.enabled = false;
+      updateReplayButtonState();
+      toggleSessionSelector();
+      closeReplayOverlay();
+    }
+
     function handleSpoilerSaveSelection() {
       if (!spoilerSeasonSelect || !spoilerGPSelect || !spoilerSessionSelect) return;
       const season = spoilerSeasonSelect.value;
@@ -2709,6 +3114,39 @@
         spoilerDecisionResolved = true;
       }
       updateSpoilerModeButtonState();
+    }
+
+    function setupReplayEventListeners() {
+      if (replaySaveBtn) {
+        replaySaveBtn.addEventListener('click', handleReplaySaveSelection);
+      }
+      if (replayCancelBtn) {
+        replayCancelBtn.addEventListener('click', handleReplayCancelSelection);
+      }
+      if (replayDisableBtn) {
+        replayDisableBtn.addEventListener('click', handleReplayDisable);
+      }
+      if (replaySeasonSelect) {
+        replaySeasonSelect.addEventListener('change', () => {
+          populateReplayGPOptions(replaySeasonSelect.value);
+        });
+      }
+      if (replayGPSelect) {
+        replayGPSelect.addEventListener('change', () => {
+          const gpValue = replayGPSelect.value;
+          if (!gpValue) {
+            populateReplaySessionOptions('', '', '');
+            return;
+          }
+          const [round, meeting] = gpValue.split('||');
+          populateReplaySessionOptions(replaySeasonSelect.value, round, meeting);
+        });
+      }
+      if (replaySlider) {
+        replaySlider.addEventListener('input', () => {
+          updateReplayTimeDisplay(parseFloat(replaySlider.value));
+        });
+      }
     }
 
     function setupSpoilerEventListeners() {
@@ -3398,16 +3836,23 @@
 
       initializeSpoilerStateFromCookie();
       setupSpoilerEventListeners();
+      setupReplayEventListeners();
       if (!spoilerDecisionResolved) {
         openSpoilerOverlay();
       }
       updateSpoilerModeButtonState();
+      updateReplayButtonState();
 
       initTabNavigation();
 
       // Set up reload data button
       reloadDataBtn.addEventListener('click', () => {
         DataCache.reloadData();
+      });
+
+      // Set up replay button
+      replayBtn.addEventListener('click', () => {
+        openReplayOverlay();
       });
 
       // Set up copy permalink button
@@ -3447,6 +3892,11 @@
           rawDataReady = true;
           const prefs = getSpoilerPreferenceValues();
           populateSpoilerSeasonOptions(prefs.season, prefs.gp, prefs.sessionType);
+
+          // Populate replay options if modal is already open
+          if (replayOverlay && replayOverlay.classList.contains('show')) {
+            populateReplaySeasonOptions();
+          }
 
           const shouldRestore = Boolean(appState.session.season || appState.session.gp || appState.session.sessionType);
           pendingSessionRestore = shouldRestore;
