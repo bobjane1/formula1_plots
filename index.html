@@ -271,11 +271,11 @@
     .timing-table th {
       color: white;
       text-transform: uppercase;
-      font-size: 11px;
+      font-size: 9px;
       font-weight: 600;
-      padding: 12px 16px;
+      padding: 6px 10px;
       text-align: center;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
     }
 
     .timing-table th:first-child {
@@ -283,7 +283,7 @@
     }
 
     .timing-table tbody tr {
-      height: 40px;
+      height: 28px;
       border-bottom: 1px solid #0a0a0a;
     }
 
@@ -296,9 +296,9 @@
     }
 
     .timing-table td {
-      padding: 8px 16px;
+      padding: 4px 10px;
       text-align: center;
-      font-size: 13px;
+      font-size: 11px;
       white-space: nowrap;
     }
 
@@ -306,21 +306,22 @@
       color: white;
       font-weight: 500;
       text-align: left !important;
-      width: 50px;
+      width: 40px;
+      font-size: 11px;
     }
 
     .timing-driver {
       text-align: left !important;
       display: flex;
       align-items: center;
-      gap: 8px;
-      min-width: 150px;
+      gap: 6px;
+      min-width: 120px;
     }
 
     .timing-driver-strip {
-      width: 4px;
-      height: 28px;
-      border-radius: 2px;
+      width: 3px;
+      height: 20px;
+      border-radius: 1px;
       flex-shrink: 0;
     }
 
@@ -328,21 +329,24 @@
       color: white;
       font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.3px;
+      letter-spacing: 0.2px;
+      font-size: 11px;
     }
 
     .timing-pill {
       display: inline-block;
       background: #3E3E4A;
-      border-radius: 12px;
-      padding: 4px 12px;
+      border-radius: 8px;
+      padding: 2px 8px;
       font-weight: 500;
-      min-width: 70px;
+      min-width: 60px;
+      font-size: 10px;
     }
 
     .timing-pill.sector {
-      min-width: 60px;
-      padding: 4px 10px;
+      min-width: 50px;
+      padding: 2px 6px;
+      font-size: 10px;
     }
 
     .timing-pill-text {
@@ -368,35 +372,37 @@
     .timing-gap {
       color: white;
       font-family: 'Roboto Mono', monospace;
+      font-size: 10px;
     }
 
     .timing-retired {
       color: #ff3333;
       font-weight: 600;
       text-transform: uppercase;
+      font-size: 10px;
     }
 
     .timing-tyre {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
+      gap: 4px;
     }
 
     .timing-tyre-age {
       color: white;
-      font-size: 12px;
+      font-size: 10px;
     }
 
     .timing-tyre-icon {
-      width: 20px;
-      height: 20px;
+      width: 16px;
+      height: 16px;
       border-radius: 50%;
       border: 2px solid;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 10px;
+      font-size: 8px;
       font-weight: 700;
     }
 
@@ -1634,7 +1640,7 @@
     .track-temp-panel {
       display: flex;
       flex-direction: column;
-      gap: 12px;
+      gap: 12px;ma
       padding: 16px;
       background: rgba(255, 255, 255, 0.02);
       border-radius: var(--radius-lg);
@@ -2516,7 +2522,7 @@
      */
     const defaultAppState = {
       // Shared across tabs
-      currentActiveTab: 'strategy',
+      currentActiveTab: 'timing',
       selectedDrivers: [],
 
       // Session selection
@@ -2601,7 +2607,7 @@
      */
     const appState = {
       // Shared across tabs
-      currentActiveTab: 'strategy',
+      currentActiveTab: 'timing',
       selectedDrivers: new Set(), // Shared driver selection across race trace and lap time panels
 
       // Session selection
