@@ -4346,7 +4346,10 @@
 
       switch(panelName) {
         case 'timing':
-          renderTimingTable(sessionData, year, round, sessionType);
+          // Pass unfiltered data and replay time if in replay mode
+          const timingUnfilteredData = replayConfig.enabled ? currentSessionDataUnfiltered : null;
+          const timingReplayTime = replayConfig.enabled ? parseFloat(replaySlider.value) : null;
+          renderTimingTable(sessionData, year, round, sessionType, timingUnfilteredData, timingReplayTime);
           // Subscribe to replay events for timing table
           setupTimingReplayListener();
           break;
@@ -4898,8 +4901,26 @@
     }
 
     // Calculate gaps and lapped status for timing table
-    function calculateTimingGaps(rows) {
+    function calculateTimingGaps(rows, unfilteredData = null, replayTime = null) {
       if (!rows || rows.length === 0) return [];
+
+      // Build a set of drivers who have future laps (only in replay mode)
+      const driversWithFutureLaps = new Set();
+      if (unfilteredData && replayTime !== null) {
+        unfilteredData.forEach(r => {
+          const driver = String(r.lap_Driver || "").trim();
+          const lapTime = parseFloat(r.lap_Time);
+          const lapStartTime = parseFloat(r.lap_LapStartTime);
+
+          if (!driver) return;
+
+          // If this lap starts or completes after current replay time, driver is still active
+          if ((!isNaN(lapTime) && lapTime > replayTime) ||
+              (!isNaN(lapStartTime) && lapStartTime > replayTime)) {
+            driversWithFutureLaps.add(driver);
+          }
+        });
+      }
 
       // Get latest lap for each driver
       const driverLatestLap = new Map();
@@ -4912,6 +4933,10 @@
         if (!driver || isNaN(lapNum) || isNaN(lapTime)) return;
 
         if (!driverLatestLap.has(driver) || lapNum > driverLatestLap.get(driver).lapNum) {
+          const finishStatus = String(r.finish_status || "").trim();
+          // Only show finish status if driver has no future laps
+          const shouldShowStatus = driversWithFutureLaps.size === 0 || !driversWithFutureLaps.has(driver);
+
           driverLatestLap.set(driver, {
             driver,
             lapNum,
@@ -4924,7 +4949,7 @@
             tyreCompound: String(r.tyre_Compound || "").trim(),
             tyreLife: parseInt(r.lap_TyreLife),
             isPersonalBest: String(r.lap_IsPersonalBest || "").toLowerCase() === 'true',
-            finishStatus: String(r.finish_status || "").trim()
+            finishStatus: shouldShowStatus ? finishStatus : ''
           });
         }
       });
@@ -5008,7 +5033,7 @@
     }
 
     // Render timing table
-    function renderTimingTable(sessionData, year, round, sessionType) {
+    function renderTimingTable(sessionData, year, round, sessionType, unfilteredData = null, replayTime = null) {
       const container = document.getElementById('timingTableContainer');
       if (!container) return;
 
@@ -5021,7 +5046,7 @@
       const driverColors = DriverInfo.getDriverColors(year, round, sessionType);
 
       // Calculate gaps and get latest lap for each driver
-      const drivers = calculateTimingGaps(sessionData);
+      const drivers = calculateTimingGaps(sessionData, unfilteredData, replayTime);
 
       // Find session bests
       const sessionBests = findTimingSessionBests(sessionData);
@@ -5146,7 +5171,15 @@
         const [round] = appState.session.gp.split('||');
         const sessionType = appState.session.sessionType;
 
-        renderTimingTable(eventData.sessionData, year, round, sessionType);
+        // Pass unfiltered data and replay time to properly handle finish status
+        renderTimingTable(
+          eventData.sessionData,
+          year,
+          round,
+          sessionType,
+          currentSessionDataUnfiltered,
+          eventData.replayTime
+        );
       };
 
       replayEventEmitter.subscribe(ReplayEvents.LAP_COMPLETED, listener);
