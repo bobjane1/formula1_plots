@@ -3348,13 +3348,14 @@
       }
       if (replaySlider) {
         replaySlider.addEventListener('input', () => {
+          const currentTime = parseFloat(replaySlider.value);
 
-          // Only pause if this is a user-initiated change (not from animation)
+          // If playing and user manually moved slider, reset start times to continue from new position
           if (isPlaying && !isProgrammaticSliderChange) {
-            pauseReplay();
+            replayStartRealTime = performance.now();
+            replayStartSessionTime = currentTime;
           }
 
-          const currentTime = parseFloat(replaySlider.value);
           updateReplayTimeDisplay(currentTime);
           updateReplayLapDisplay(currentTime);
 
