@@ -2493,6 +2493,55 @@
     let isProgrammaticSliderChange = false; // Flag to distinguish user vs code changes
     const UPDATE_INTERVAL = 33; // ~30fps when tab is active, throttled to ~1000ms in background
 
+    // ============================================================================
+    // REPLAY EVENT EMITTER SYSTEM
+    // ============================================================================
+
+    // Event types that can be emitted during replay
+    const ReplayEvents = {
+      LAP_COMPLETED: 'LAP_COMPLETED',    // New lap data becomes visible
+      SECTOR_COMPLETED: 'SECTOR_COMPLETED', // New sector data (future use)
+      PIT_STOP: 'PIT_STOP',              // Pit stop detected (future use)
+      TIME_TICK: 'TIME_TICK'             // Time advances (for continuous updates)
+    };
+
+    // Global event emitter for replay events
+    const replayEventEmitter = {
+      listeners: new Map(), // Map<eventType, Set<callback>>
+
+      subscribe(eventType, callback) {
+        if (!this.listeners.has(eventType)) {
+          this.listeners.set(eventType, new Set());
+        }
+        this.listeners.get(eventType).add(callback);
+      },
+
+      unsubscribe(eventType, callback) {
+        if (this.listeners.has(eventType)) {
+          this.listeners.get(eventType).delete(callback);
+        }
+      },
+
+      emit(eventType, data) {
+        if (this.listeners.has(eventType)) {
+          this.listeners.get(eventType).forEach(callback => {
+            try {
+              callback(data);
+            } catch (err) {
+              console.error(`Error in replay event listener for ${eventType}:`, err);
+            }
+          });
+        }
+      },
+
+      clear() {
+        this.listeners.clear();
+      }
+    };
+
+    // Track previous filtered data state to detect changes
+    let previousFilteredDataLength = 0;
+
     function openReplayOverlay() {
       if (!replayOverlay) return;
       replayOverlay.classList.add('show');
@@ -2562,6 +2611,7 @@
 
       // Apply time filter and reinitialize current tab with filtered data
       applyReplayTimeFilter();
+      previousFilteredDataLength = currentSessionData ? currentSessionData.length : 0;
       if (currentSessionData && currentSessionData.length >= 0) {
         initializePanel(appState.currentActiveTab, currentSessionData);
       }
@@ -2676,10 +2726,22 @@
         isProgrammaticSliderChange = false;
         updateReplayTimeDisplay(newSessionTime);
         updateReplayLapDisplay(newSessionTime);
+
+        // Store previous data length before filtering
+        const previousLength = previousFilteredDataLength;
         applyReplayTimeFilter();
-        if (currentSessionData && currentSessionData.length >= 0) {
-          initializePanel(appState.currentActiveTab, currentSessionData);
+
+        // Detect if new laps appeared
+        const currentLength = currentSessionData ? currentSessionData.length : 0;
+        if (currentLength > previousLength) {
+          previousFilteredDataLength = currentLength;
+          // Emit LAP_COMPLETED event which will update all subscribed charts
+          replayEventEmitter.emit(ReplayEvents.LAP_COMPLETED, {
+            sessionData: currentSessionData,
+            replayTime: newSessionTime
+          });
         }
+
         // Pause at the end
         pauseReplay();
         return;
@@ -2693,10 +2755,19 @@
       updateReplayTimeDisplay(newSessionTime);
       updateReplayLapDisplay(newSessionTime);
 
-      // Refilter session data and refresh active panel
+      // Store previous data length before filtering
+      const previousLength = previousFilteredDataLength;
       applyReplayTimeFilter();
-      if (currentSessionData && currentSessionData.length >= 0) {
-        initializePanel(appState.currentActiveTab, currentSessionData);
+
+      // Detect if new laps appeared
+      const currentLength = currentSessionData ? currentSessionData.length : 0;
+      if (currentLength > previousLength) {
+        previousFilteredDataLength = currentLength;
+        // Emit LAP_COMPLETED event which will update all subscribed charts
+        replayEventEmitter.emit(ReplayEvents.LAP_COMPLETED, {
+          sessionData: currentSessionData,
+          replayTime: newSessionTime
+        });
       }
       // setInterval handles the looping automatically
     }
@@ -3361,7 +3432,11 @@
 
           // Refilter session data and refresh active panel
           applyReplayTimeFilter();
-          if (currentSessionData && currentSessionData.length >= 0) {
+          previousFilteredDataLength = currentSessionData ? currentSessionData.length : 0;
+
+          // Only update charts immediately for manual user scrubbing, not programmatic changes
+          // During animation, the event emitter will handle updates
+          if (!isProgrammaticSliderChange && currentSessionData && currentSessionData.length >= 0) {
             initializePanel(appState.currentActiveTab, currentSessionData);
           }
         });
@@ -3955,6 +4030,8 @@
       switch(panelName) {
         case 'strategy':
           renderStrategyChart(sessionData, year, round, sessionType);
+          // Subscribe to replay events for strategy chart (idempotent - won't add duplicates)
+          setupStrategyReplayListener();
           break;
         case 'race-trace':
           raceTraceCurrentSessionRows = sessionData;
@@ -3978,6 +4055,8 @@
           calculateRaceTraceGaps(sessionData);
           buildRaceTraceDriverList();
           renderRaceTraceChart();
+          // Subscribe to replay events for race trace chart
+          setupRaceTraceReplayListener();
           break;
         case 'lap-time':
           // Initialize lap time panel
@@ -3999,6 +4078,8 @@
 
           // Process lap time data with shared filters
           processLapTimeData(sessionData);
+          // Subscribe to replay events for lap time charts
+          setupLapTimeReplayListener();
           break;
         case 'tyre-deg':
           // Initialize tyre deg panel
@@ -4023,6 +4104,8 @@
           renderTyreDegFilterInputsFromState();
 
           processTyreDegData(sessionData);
+          // Subscribe to replay events for tyre deg charts
+          setupTyreDegReplayListener();
           break;
         case 'fuel-effect':
           // Initialize fuel effect panel
@@ -4030,12 +4113,18 @@
           renderSharedFiltersFromState();
 
           processFuelEffectData(sessionData, { restoreSelections: true });
+          // Subscribe to replay events for fuel effect charts
+          setupFuelEffectReplayListener();
           break;
         case 'pit-loss':
           processPitLossData(sessionData);
+          // Subscribe to replay events for pit loss charts
+          setupPitLossReplayListener();
           break;
         case 'track-temp':
           initializeTrackTempPanel(sessionData);
+          // Subscribe to replay events for track temp chart
+          setupTrackTempReplayListener();
           break;
         case 'calculator':
           // Initialize calculator panel
@@ -4354,6 +4443,127 @@
       const y = e.clientY;
       tooltip.style.left = `${x + 15}px`;
       tooltip.style.top = `${y + 15}px`;
+    }
+
+    // ============================================================================
+    // REPLAY EVENT LISTENERS FOR CHARTS
+    // ============================================================================
+
+    // Track which listeners have been set up to avoid duplicates
+    let strategyListenerSetup = false;
+    let raceTraceListenerSetup = false;
+    let lapTimeListenerSetup = false;
+    let tyreDegListenerSetup = false;
+    let fuelEffectListenerSetup = false;
+    let pitLossListenerSetup = false;
+    let trackTempListenerSetup = false;
+
+    function setupStrategyReplayListener() {
+      if (strategyListenerSetup) return; // Already subscribed
+
+      const listener = (eventData) => {
+        // Only update if strategy panel is active (optimization)
+        if (appState.currentActiveTab !== 'strategy') return;
+
+        const year = appState.session.season;
+        const [round, meeting] = appState.session.gp.split('||');
+        const sessionType = appState.session.sessionType;
+        renderStrategyChart(eventData.sessionData, year, round, sessionType);
+      };
+
+      replayEventEmitter.subscribe(ReplayEvents.LAP_COMPLETED, listener);
+      strategyListenerSetup = true;
+    }
+
+    function setupRaceTraceReplayListener() {
+      if (raceTraceListenerSetup) return; // Already subscribed
+
+      const listener = (eventData) => {
+        // Only update if race-trace panel is active (optimization)
+        if (appState.currentActiveTab !== 'race-trace') return;
+
+        calculateRaceTraceGaps(eventData.sessionData);
+        buildRaceTraceDriverList();
+        renderRaceTraceChart();
+      };
+
+      replayEventEmitter.subscribe(ReplayEvents.LAP_COMPLETED, listener);
+      raceTraceListenerSetup = true;
+    }
+
+    function setupLapTimeReplayListener() {
+      if (lapTimeListenerSetup) return; // Already subscribed
+
+      const listener = (eventData) => {
+        // Only update if lap-time panel is active (optimization)
+        if (appState.currentActiveTab !== 'lap-time') return;
+
+        // Process lap time data which will render chart and summary table
+        processLapTimeData(eventData.sessionData);
+      };
+
+      replayEventEmitter.subscribe(ReplayEvents.LAP_COMPLETED, listener);
+      lapTimeListenerSetup = true;
+    }
+
+    function setupTyreDegReplayListener() {
+      if (tyreDegListenerSetup) return; // Already subscribed
+
+      const listener = (eventData) => {
+        // Only update if tyre-deg panel is active (optimization)
+        if (appState.currentActiveTab !== 'tyre-deg') return;
+
+        // Process tyre deg data which will render all 3 visualizations
+        processTyreDegData(eventData.sessionData);
+      };
+
+      replayEventEmitter.subscribe(ReplayEvents.LAP_COMPLETED, listener);
+      tyreDegListenerSetup = true;
+    }
+
+    function setupFuelEffectReplayListener() {
+      if (fuelEffectListenerSetup) return; // Already subscribed
+
+      const listener = (eventData) => {
+        // Only update if fuel-effect panel is active (optimization)
+        if (appState.currentActiveTab !== 'fuel-effect') return;
+
+        // Process fuel effect data which will render chart and table
+        processFuelEffectData(eventData.sessionData, { restoreSelections: false });
+      };
+
+      replayEventEmitter.subscribe(ReplayEvents.LAP_COMPLETED, listener);
+      fuelEffectListenerSetup = true;
+    }
+
+    function setupPitLossReplayListener() {
+      if (pitLossListenerSetup) return; // Already subscribed
+
+      const listener = (eventData) => {
+        // Only update if pit-loss panel is active (optimization)
+        if (appState.currentActiveTab !== 'pit-loss') return;
+
+        // Process pit loss data which will render table and stats
+        processPitLossData(eventData.sessionData);
+      };
+
+      replayEventEmitter.subscribe(ReplayEvents.LAP_COMPLETED, listener);
+      pitLossListenerSetup = true;
+    }
+
+    function setupTrackTempReplayListener() {
+      if (trackTempListenerSetup) return; // Already subscribed
+
+      const listener = (eventData) => {
+        // Only update if track-temp panel is active (optimization)
+        if (appState.currentActiveTab !== 'track-temp') return;
+
+        // Reinitialize track temp panel with new data
+        initializeTrackTempPanel(eventData.sessionData);
+      };
+
+      replayEventEmitter.subscribe(ReplayEvents.LAP_COMPLETED, listener);
+      trackTempListenerSetup = true;
     }
 
     function renderStrategyChart(rows, year, round, sessionType) {
