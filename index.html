@@ -2275,7 +2275,8 @@
     let allRowsRaw = [];
     let sessionsByKey = new Map();
     const fullSessionsByKey = new Map();
-    let currentSessionData = null; // Stores filtered data for current session
+    let currentSessionData = null; // Stores filtered data for current session (with replay filter applied if active)
+    let currentSessionDataUnfiltered = null; // Stores session data without replay time filter
     let rawDataReady = false;
     let spoilerDecisionResolved = false;
     let sessionsInitialized = false;
@@ -2502,13 +2503,13 @@
     }
 
     function initializeReplaySlider() {
-      if (!replayConfig.enabled || !currentSessionData || currentSessionData.length === 0) {
+      if (!replayConfig.enabled || !currentSessionDataUnfiltered || currentSessionDataUnfiltered.length === 0) {
         return;
       }
 
-      // Get min lap start time and max lap end time from current session data
-      const startTimes = currentSessionData.map(r => parseFloat(r.lap_LapStartTime)).filter(t => !isNaN(t));
-      const endTimes = currentSessionData.map(r => parseFloat(r.lap_Time)).filter(t => !isNaN(t));
+      // Get min lap start time and max lap end time from UNFILTERED session data
+      const startTimes = currentSessionDataUnfiltered.map(r => parseFloat(r.lap_LapStartTime)).filter(t => !isNaN(t));
+      const endTimes = currentSessionDataUnfiltered.map(r => parseFloat(r.lap_Time)).filter(t => !isNaN(t));
 
       if (startTimes.length === 0 || endTimes.length === 0) return;
 
@@ -2530,17 +2531,17 @@
     }
 
     function calculateCurrentLap(currentTime) {
-      if (!currentSessionData || currentSessionData.length === 0) {
+      if (!currentSessionDataUnfiltered || currentSessionDataUnfiltered.length === 0) {
         return 1;
       }
 
       // Get scheduled laps for the session
-      const schedLaps = currentSessionData.length > 0 ? parseInt(currentSessionData[0].sched_laps) : null;
+      const schedLaps = currentSessionDataUnfiltered.length > 0 ? parseInt(currentSessionDataUnfiltered[0].sched_laps) : null;
 
       // Find the highest lap number where lap is completed (lap_Time < currentTime)
       let maxCompletedLap = 0;
 
-      for (const row of currentSessionData) {
+      for (const row of currentSessionDataUnfiltered) {
         // lap_Time is the session time at the end of the lap
         const lapEndTime = parseFloat(row.lap_Time);
         const lapNumber = parseInt(row.lap_LapNumber);
@@ -2566,6 +2567,21 @@
         const lapNumber = calculateCurrentLap(time);
         replayCurrentLap.textContent = `Lap ${lapNumber}`;
       }
+    }
+
+    function applyReplayTimeFilter() {
+      if (!replayConfig.enabled || !currentSessionDataUnfiltered) {
+        // If replay mode is off, use unfiltered data
+        currentSessionData = currentSessionDataUnfiltered;
+        return;
+      }
+
+      const replayTime = parseFloat(replaySlider.value);
+      // Filter to only include laps completed before the replay time
+      currentSessionData = currentSessionDataUnfiltered.filter(r => {
+        const lapTime = parseFloat(r.lap_Time);
+        return !isNaN(lapTime) && lapTime <= replayTime;
+      });
     }
 
     function toggleSessionSelector() {
@@ -3203,6 +3219,12 @@
           const currentTime = parseFloat(replaySlider.value);
           updateReplayTimeDisplay(currentTime);
           updateReplayLapDisplay(currentTime);
+
+          // Refilter session data and refresh active panel
+          applyReplayTimeFilter();
+          if (currentSessionData && currentSessionData.length >= 0) {
+            initializePanel(appState.currentActiveTab, currentSessionData);
+          }
         });
       }
     }
@@ -4011,6 +4033,7 @@
       sessionSel.disabled = true;
 
       currentSessionData = null;
+      currentSessionDataUnfiltered = null;
 
       UIHelpers.populateGPs(gpSel, sessionsByKey, selectedSeason, {
         // onChange: onGPChange
@@ -4040,6 +4063,7 @@
       }
 
       currentSessionData = null;
+      currentSessionDataUnfiltered = null;
 
       UIHelpers.populateSessions(sessionSel, sessionsByKey, selectedSeason, selectedGP, {
         // onChange: onSessionChange
@@ -4071,18 +4095,22 @@
 
       if (!selectedSeason || !selectedGP || !selectedSession) {
         currentSessionData = null;
+        currentSessionDataUnfiltered = null;
         return;
       }
 
       const [round, meeting] = selectedGP.split('||');
 
       // Filter data for this session (shared across all tabs)
-      currentSessionData = allRows.filter(r => {
+      currentSessionDataUnfiltered = allRows.filter(r => {
         return String(r.year || "").trim() === selectedSeason &&
                String(r.round_no || "").trim() === round &&
                String(r.meeting_name || "").trim() === meeting &&
                String(r.session_type || "").trim() === selectedSession;
       });
+
+      // Apply replay time filter if active
+      applyReplayTimeFilter();
 
       // Clear selected drivers when a new session is selected (unless restoring from permalink)
       if (!window.permalinkSession || !window.permalinkSession.isRestoring) {
