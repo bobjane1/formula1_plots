@@ -3339,6 +3339,26 @@
       updateReplayButtonState();
       toggleSessionSelector();
       closeReplayOverlay();
+
+      // Reset data to unfiltered state
+      currentSessionData = currentSessionDataUnfiltered;
+      previousFilteredDataLength = 0;
+
+      // Reset filters to default values
+      appState.filters.minLap = 1;
+      appState.filters.endLaps = 1;
+      appState.filters.minStintLap = 2;
+      appState.filters.minDist = 3;
+      appState.filters.rainfall = false;
+      appState.filters.safetyCar = false;
+      appState.filters.pitLaps = false;
+      appState.filters.includeLapped = true;
+      appState.filters.includeRetired = true;
+
+      // Re-initialize current panel with unfiltered data and default filters
+      if (currentSessionData && currentSessionData.length >= 0) {
+        initializePanel(appState.currentActiveTab, currentSessionData);
+      }
     }
 
     function handleSpoilerSaveSelection() {
