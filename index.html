@@ -5073,6 +5073,41 @@
       };
     }
 
+    // Find personal bests for each driver's sectors
+    function findTimingPersonalBests(rows) {
+      const personalBests = new Map();
+
+      rows.forEach(r => {
+        const driver = String(r.lap_Driver || "").trim();
+        if (!driver) return;
+
+        const s1 = parseFloat(r.lap_Sector1Time);
+        const s2 = parseFloat(r.lap_Sector2Time);
+        const s3 = parseFloat(r.lap_Sector3Time);
+
+        if (!personalBests.has(driver)) {
+          personalBests.set(driver, {
+            fastestS1: Infinity,
+            fastestS2: Infinity,
+            fastestS3: Infinity
+          });
+        }
+
+        const pb = personalBests.get(driver);
+        if (!isNaN(s1) && s1 > 0 && s1 < pb.fastestS1) {
+          pb.fastestS1 = s1;
+        }
+        if (!isNaN(s2) && s2 > 0 && s2 < pb.fastestS2) {
+          pb.fastestS2 = s2;
+        }
+        if (!isNaN(s3) && s3 > 0 && s3 < pb.fastestS3) {
+          pb.fastestS3 = s3;
+        }
+      });
+
+      return personalBests;
+    }
+
     // Render timing table
     function renderTimingTable(sessionData, year, round, sessionType, unfilteredData = null, replayTime = null) {
       const container = document.getElementById('timingTableContainer');
@@ -5091,6 +5126,9 @@
 
       // Find session bests
       const sessionBests = findTimingSessionBests(sessionData);
+
+      // Find personal bests for each driver
+      const personalBests = findTimingPersonalBests(sessionData);
 
       // Sort: active drivers by position, then retired drivers
       const activeDrivers = drivers.filter(d => {
@@ -5167,11 +5205,15 @@
         // Sectors
         [d.sector1, d.sector2, d.sector3].forEach((sectorTime, idx) => {
           const sessionBest = [sessionBests.fastestS1, sessionBests.fastestS2, sessionBests.fastestS3][idx];
+          const driverPB = personalBests.get(d.driver);
+          const personalBest = driverPB ? [driverPB.fastestS1, driverPB.fastestS2, driverPB.fastestS3][idx] : null;
+
           html += '<td>';
           if (sectorTime) {
             const isSessionFastest = sessionBest && Math.abs(sectorTime - sessionBest) < 0.001;
+            const isPersonalBest = !isSessionFastest && personalBest && Math.abs(sectorTime - personalBest) < 0.001;
             const colorClass = isSessionFastest ? 'timing-fastest' :
-                             'timing-normal-sector'; // Note: personal best sectors not tracked separately
+                             isPersonalBest ? 'timing-personal-best' : 'timing-normal-sector';
             html += `<span class="timing-pill sector"><span class="timing-pill-text ${colorClass}">`;
             html += formatTimingSectorTime(sectorTime);
             html += '</span></span>';
