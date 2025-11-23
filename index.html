@@ -2536,6 +2536,7 @@
     }
 
     function initializeReplaySlider() {
+      console.log('initializeReplaySlider called. enabled:', replayConfig.enabled, 'dataLength:', currentSessionDataUnfiltered?.length);
       if (!replayConfig.enabled || !currentSessionDataUnfiltered || currentSessionDataUnfiltered.length === 0) {
         return;
       }
@@ -2549,12 +2550,26 @@
       const minTime = Math.min(...startTimes);
       const maxTime = Math.max(...endTimes);
 
+      console.log('Setting slider range:', minTime, 'to', maxTime);
+
       replaySlider.min = minTime;
       replaySlider.max = maxTime;
+
+      // Set slider value with flag to prevent input event interference
+      isProgrammaticSliderChange = true;
       replaySlider.value = minTime;
+      isProgrammaticSliderChange = false;
 
       updateReplayTimeDisplay(minTime);
       updateReplayLapDisplay(minTime);
+
+      // Apply time filter and reinitialize current tab with filtered data
+      console.log('Applying replay filter and initializing panel. Unfiltered rows:', currentSessionDataUnfiltered.length);
+      applyReplayTimeFilter();
+      console.log('After filter. Filtered rows:', currentSessionData?.length, 'activeTab:', appState.currentActiveTab);
+      if (currentSessionData && currentSessionData.length >= 0) {
+        initializePanel(appState.currentActiveTab, currentSessionData);
+      }
     }
 
     function updateReplayTimeDisplay(time) {
@@ -3341,12 +3356,16 @@
           }
 
           const currentTime = parseFloat(replaySlider.value);
+          console.log('Manual slider change. currentTime:', currentTime);
           updateReplayTimeDisplay(currentTime);
           updateReplayLapDisplay(currentTime);
 
           // Refilter session data and refresh active panel
+          console.log('Before filter - unfiltered rows:', currentSessionDataUnfiltered?.length);
           applyReplayTimeFilter();
+          console.log('After filter - filtered rows:', currentSessionData?.length, 'activeTab:', appState.currentActiveTab);
           if (currentSessionData && currentSessionData.length >= 0) {
+            console.log('Calling initializePanel for:', appState.currentActiveTab);
             initializePanel(appState.currentActiveTab, currentSessionData);
           }
         });
@@ -3932,12 +3951,33 @@
     }
 
     function initializePanel(panelName, sessionData) {
-      if (!sessionData || sessionData.length === 0) return;
-
       // Get current session info
       const year = appState.session.season;
       const [round, meeting] = appState.session.gp.split('||');
       const sessionType = appState.session.sessionType;
+
+      // If no data, hide/clear the panel content without destroying the structure
+      if (!sessionData || sessionData.length === 0) {
+        switch(panelName) {
+          case 'strategy':
+            const strategyContainer = document.getElementById('strategyContainer');
+            if (strategyContainer) {
+              strategyContainer.classList.remove('show');
+              const strategyChart = document.getElementById('strategyChart');
+              if (strategyChart) strategyChart.innerHTML = '';
+            }
+            break;
+          case 'race-trace':
+            const raceTracePanel = document.getElementById('race-trace-panel');
+            if (raceTracePanel) raceTracePanel.innerHTML = '';
+            break;
+          case 'telemetry':
+            const telemetryPanel = document.getElementById('telemetry-panel');
+            if (telemetryPanel) telemetryPanel.innerHTML = '';
+            break;
+        }
+        return;
+      }
 
       switch(panelName) {
         case 'strategy':
@@ -4304,6 +4344,7 @@
     }
 
     function renderStrategyChart(rows, year, round, sessionType) {
+      console.log('renderStrategyChart called with', rows.length, 'rows');
       // Get driver colors for this specific session
       const driverColors = DriverInfo.getDriverColors(year, round, sessionType);
 
