@@ -248,6 +248,174 @@
     }
 
     /* ========================================================================
+       TIMING PANEL STYLES
+       ======================================================================== */
+
+    #timing-panel {
+      padding: 20px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .timing-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
+      background: #1a1a1a;
+    }
+
+    .timing-table thead {
+      background: #2a2a2a;
+    }
+
+    .timing-table th {
+      color: white;
+      text-transform: uppercase;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 12px 16px;
+      text-align: center;
+      letter-spacing: 0.5px;
+    }
+
+    .timing-table th:first-child {
+      text-align: left;
+    }
+
+    .timing-table tbody tr {
+      height: 40px;
+      border-bottom: 1px solid #0a0a0a;
+    }
+
+    .timing-table tbody tr:nth-child(even) {
+      background: #1a1a1a;
+    }
+
+    .timing-table tbody tr:nth-child(odd) {
+      background: #222;
+    }
+
+    .timing-table td {
+      padding: 8px 16px;
+      text-align: center;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .timing-position {
+      color: white;
+      font-weight: 500;
+      text-align: left !important;
+      width: 50px;
+    }
+
+    .timing-driver {
+      text-align: left !important;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 150px;
+    }
+
+    .timing-driver-strip {
+      width: 4px;
+      height: 28px;
+      border-radius: 2px;
+      flex-shrink: 0;
+    }
+
+    .timing-driver-name {
+      color: white;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .timing-pill {
+      display: inline-block;
+      background: #3E3E4A;
+      border-radius: 12px;
+      padding: 4px 12px;
+      font-weight: 500;
+      min-width: 70px;
+    }
+
+    .timing-pill.sector {
+      min-width: 60px;
+      padding: 4px 10px;
+    }
+
+    .timing-pill-text {
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    .timing-fastest {
+      color: #FF00FF !important;
+    }
+
+    .timing-personal-best {
+      color: #02FF00 !important;
+    }
+
+    .timing-normal-lap {
+      color: white;
+    }
+
+    .timing-normal-sector {
+      color: #FFE300;
+    }
+
+    .timing-gap {
+      color: white;
+      font-family: 'Roboto Mono', monospace;
+    }
+
+    .timing-retired {
+      color: #ff3333;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .timing-tyre {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+
+    .timing-tyre-age {
+      color: white;
+      font-size: 12px;
+    }
+
+    .timing-tyre-icon {
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      border: 2px solid;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: 700;
+    }
+
+    .timing-tyre-icon.hard {
+      border-color: white;
+      color: white;
+    }
+
+    .timing-tyre-icon.medium {
+      border-color: #FFE300;
+      color: #FFE300;
+    }
+
+    .timing-tyre-icon.soft {
+      border-color: #ff3333;
+      color: #ff3333;
+    }
+
+    /* ========================================================================
        STRATEGY PANEL STYLES
        ======================================================================== */
 
@@ -1725,6 +1893,7 @@
   <div class="container">
     <!-- Tab Navigation -->
     <div class="tab-navigation">
+      <button class="tab-button" data-tab="timing">Timing</button>
       <button class="tab-button active" data-tab="strategy">Strategy</button>
       <button class="tab-button" data-tab="race-trace">Trace</button>
       <button class="tab-button" data-tab="fuel-effect" data-tooltip="Compares laps for the same driver, compound, and tyre life at different fuel loads to calculate fuel effect. Click 'Select Fuel Effect' to apply the coefficient to other tabs.">Fuel Effect</button>
@@ -1774,6 +1943,11 @@
     </div>
 
     <!-- Strategy Panel -->
+    <!-- Timing Panel -->
+    <div id="timing-panel" class="content-panel">
+      <div id="timingTableContainer"></div>
+    </div>
+
     <div id="strategy-panel" class="content-panel active">
       <div id="strategyContainer" class="strategy-container">
         <div class="lap-axis top">
@@ -4165,6 +4339,11 @@
       const sessionType = appState.session.sessionType;
 
       switch(panelName) {
+        case 'timing':
+          renderTimingTable(sessionData, year, round, sessionType);
+          // Subscribe to replay events for timing table
+          setupTimingReplayListener();
+          break;
         case 'strategy':
           renderStrategyChart(sessionData, year, round, sessionType);
           // Subscribe to replay events for strategy chart (idempotent - won't add duplicates)
@@ -4692,6 +4871,280 @@
 
       replayEventEmitter.subscribe(ReplayEvents.LAP_COMPLETED, listener);
       trackTempListenerSetup = true;
+    }
+
+    /* ========================================================================
+       TIMING TAB FUNCTIONS
+       ======================================================================== */
+
+    // Format lap time as mm:ss.xxx
+    function formatTimingLapTime(seconds) {
+      if (!seconds || isNaN(seconds)) return '';
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}:${secs.toFixed(3).padStart(6, '0')}`;
+    }
+
+    // Format sector time as ss.xxx
+    function formatTimingSectorTime(seconds) {
+      if (!seconds || isNaN(seconds)) return '';
+      return seconds.toFixed(3);
+    }
+
+    // Calculate gaps and lapped status for timing table
+    function calculateTimingGaps(rows) {
+      if (!rows || rows.length === 0) return [];
+
+      // Get latest lap for each driver
+      const driverLatestLap = new Map();
+
+      rows.forEach(r => {
+        const driver = String(r.lap_Driver || "").trim();
+        const lapNum = parseInt(r.lap_LapNumber);
+        const lapTime = parseFloat(r.lap_Time); // Cumulative session time
+
+        if (!driver || isNaN(lapNum) || isNaN(lapTime)) return;
+
+        if (!driverLatestLap.has(driver) || lapNum > driverLatestLap.get(driver).lapNum) {
+          driverLatestLap.set(driver, {
+            driver,
+            lapNum,
+            lapTime,
+            position: parseInt(r.lap_Position),
+            lapDuration: parseFloat(r.lap_LapTime),
+            sector1: parseFloat(r.lap_Sector1Time),
+            sector2: parseFloat(r.lap_Sector2Time),
+            sector3: parseFloat(r.lap_Sector3Time),
+            tyreCompound: String(r.tyre_Compound || "").trim(),
+            tyreLife: parseInt(r.lap_TyreLife),
+            isPersonalBest: String(r.lap_IsPersonalBest || "").toLowerCase() === 'true',
+            finishStatus: String(r.finish_status || "").trim()
+          });
+        }
+      });
+
+      // Convert to array and find leader
+      const drivers = Array.from(driverLatestLap.values());
+      if (drivers.length === 0) return [];
+
+      // Find leader (highest lap number, then lowest time)
+      drivers.sort((a, b) => {
+        if (a.lapNum !== b.lapNum) return b.lapNum - a.lapNum;
+        return a.lapTime - b.lapTime;
+      });
+
+      const leader = drivers[0];
+
+      // Calculate gaps
+      drivers.forEach(d => {
+        if (d.driver === leader.driver) {
+          d.gap = null;
+          d.lapped = 0;
+        } else {
+          const lapsDiff = leader.lapNum - d.lapNum;
+          if (lapsDiff > 0) {
+            // Driver is lapped
+            d.lapped = lapsDiff;
+            d.gap = null;
+          } else {
+            // Same lap - calculate time gap
+            d.gap = d.lapTime - leader.lapTime;
+            d.lapped = 0;
+          }
+        }
+      });
+
+      return drivers;
+    }
+
+    // Find session bests for lap and sectors
+    function findTimingSessionBests(rows) {
+      if (!rows || rows.length === 0) {
+        return {
+          fastestLap: null,
+          fastestS1: null,
+          fastestS2: null,
+          fastestS3: null
+        };
+      }
+
+      let fastestLap = Infinity;
+      let fastestS1 = Infinity;
+      let fastestS2 = Infinity;
+      let fastestS3 = Infinity;
+
+      rows.forEach(r => {
+        const lapTime = parseFloat(r.lap_LapTime);
+        const s1 = parseFloat(r.lap_Sector1Time);
+        const s2 = parseFloat(r.lap_Sector2Time);
+        const s3 = parseFloat(r.lap_Sector3Time);
+
+        if (!isNaN(lapTime) && lapTime > 0 && lapTime < fastestLap) {
+          fastestLap = lapTime;
+        }
+        if (!isNaN(s1) && s1 > 0 && s1 < fastestS1) {
+          fastestS1 = s1;
+        }
+        if (!isNaN(s2) && s2 > 0 && s2 < fastestS2) {
+          fastestS2 = s2;
+        }
+        if (!isNaN(s3) && s3 > 0 && s3 < fastestS3) {
+          fastestS3 = s3;
+        }
+      });
+
+      return {
+        fastestLap: fastestLap === Infinity ? null : fastestLap,
+        fastestS1: fastestS1 === Infinity ? null : fastestS1,
+        fastestS2: fastestS2 === Infinity ? null : fastestS2,
+        fastestS3: fastestS3 === Infinity ? null : fastestS3
+      };
+    }
+
+    // Render timing table
+    function renderTimingTable(sessionData, year, round, sessionType) {
+      const container = document.getElementById('timingTableContainer');
+      if (!container) return;
+
+      if (!sessionData || sessionData.length === 0) {
+        container.innerHTML = '<div style="color: white; padding: 20px; text-align: center;">No timing data available</div>';
+        return;
+      }
+
+      // Get driver colors
+      const driverColors = DriverInfo.getDriverColors(year, round, sessionType);
+
+      // Calculate gaps and get latest lap for each driver
+      const drivers = calculateTimingGaps(sessionData);
+
+      // Find session bests
+      const sessionBests = findTimingSessionBests(sessionData);
+
+      // Sort: active drivers by position, then retired drivers
+      const activeDrivers = drivers.filter(d => {
+        const status = d.finishStatus.toLowerCase();
+        return status === '' || status === 'finished' || status === 'lapped';
+      }).sort((a, b) => (a.position || 999) - (b.position || 999));
+
+      const retiredDrivers = drivers.filter(d => {
+        const status = d.finishStatus.toLowerCase();
+        return status === 'retired' || status === 'disqualified';
+      });
+
+      const allDrivers = [...activeDrivers, ...retiredDrivers];
+
+      // Build HTML
+      let html = '<table class="timing-table"><thead><tr>';
+      html += '<th>POSITION</th>';
+      html += '<th style="text-align: left;">DRIVER</th>';
+      html += '<th>LAP TIME</th>';
+      html += '<th>GAP</th>';
+      html += '<th>S1</th>';
+      html += '<th>S2</th>';
+      html += '<th>S3</th>';
+      html += '<th>TYRE</th>';
+      html += '</tr></thead><tbody>';
+
+      allDrivers.forEach(d => {
+        const isRetired = retiredDrivers.includes(d);
+        const driverColor = driverColors.get(d.driver) || '#888888';
+
+        html += '<tr>';
+
+        // Position
+        html += '<td class="timing-position">';
+        if (!isRetired && d.position) {
+          html += d.position;
+        }
+        html += '</td>';
+
+        // Driver with color strip
+        html += '<td class="timing-driver"><div class="timing-driver">';
+        html += `<div class="timing-driver-strip" style="background: ${driverColor};"></div>`;
+        html += `<div class="timing-driver-name">${d.driver}</div>`;
+        html += '</div></td>';
+
+        // Lap time
+        html += '<td>';
+        if (isRetired) {
+          const status = d.finishStatus.toUpperCase();
+          html += `<span class="timing-retired">${status}</span>`;
+        } else if (d.lapDuration) {
+          const isSessionFastest = sessionBests.fastestLap && Math.abs(d.lapDuration - sessionBests.fastestLap) < 0.001;
+          const colorClass = isSessionFastest ? 'timing-fastest' :
+                           d.isPersonalBest ? 'timing-personal-best' : 'timing-normal-lap';
+          html += `<span class="timing-pill"><span class="timing-pill-text ${colorClass}">`;
+          html += formatTimingLapTime(d.lapDuration);
+          html += '</span></span>';
+        }
+        html += '</td>';
+
+        // Gap
+        html += '<td class="timing-gap">';
+        if (!isRetired) {
+          if (d.lapped > 0) {
+            html += `${d.lapped}L`;
+          } else if (d.gap !== null && d.gap !== undefined) {
+            html += `+${d.gap.toFixed(3)}`;
+          }
+        } else if (d.lapNum) {
+          html += `${d.lapNum}L`;
+        }
+        html += '</td>';
+
+        // Sectors
+        [d.sector1, d.sector2, d.sector3].forEach((sectorTime, idx) => {
+          const sessionBest = [sessionBests.fastestS1, sessionBests.fastestS2, sessionBests.fastestS3][idx];
+          html += '<td>';
+          if (sectorTime) {
+            const isSessionFastest = sessionBest && Math.abs(sectorTime - sessionBest) < 0.001;
+            const colorClass = isSessionFastest ? 'timing-fastest' :
+                             'timing-normal-sector'; // Note: personal best sectors not tracked separately
+            html += `<span class="timing-pill sector"><span class="timing-pill-text ${colorClass}">`;
+            html += formatTimingSectorTime(sectorTime);
+            html += '</span></span>';
+          }
+          html += '</td>';
+        });
+
+        // Tyre
+        html += '<td><div class="timing-tyre">';
+        if (d.tyreLife) {
+          html += `<span class="timing-tyre-age">${d.tyreLife}</span>`;
+        }
+        if (d.tyreCompound) {
+          const compound = d.tyreCompound.charAt(0).toUpperCase();
+          const tyreClass = d.tyreCompound.toLowerCase().startsWith('h') ? 'hard' :
+                          d.tyreCompound.toLowerCase().startsWith('m') ? 'medium' : 'soft';
+          html += `<div class="timing-tyre-icon ${tyreClass}">${compound}</div>`;
+        }
+        html += '</div></td>';
+
+        html += '</tr>';
+      });
+
+      html += '</tbody></table>';
+      container.innerHTML = html;
+    }
+
+    // Set up replay listener for timing tab
+    let timingListenerSetup = false;
+
+    function setupTimingReplayListener() {
+      if (timingListenerSetup) return;
+
+      const listener = (eventData) => {
+        if (appState.currentActiveTab !== 'timing') return;
+
+        const year = appState.session.season;
+        const [round] = appState.session.gp.split('||');
+        const sessionType = appState.session.sessionType;
+
+        renderTimingTable(eventData.sessionData, year, round, sessionType);
+      };
+
+      replayEventEmitter.subscribe(ReplayEvents.LAP_COMPLETED, listener);
+      timingListenerSetup = true;
     }
 
     function renderStrategyChart(rows, year, round, sessionType) {
