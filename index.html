@@ -4049,6 +4049,11 @@
           nextMin = Math.max(minLapNum, Math.min(nextMin ?? minLapNum, maxLapNum));
           nextMax = Math.max(nextMin, Math.min(nextMax ?? maxLapNum, maxLapNum));
 
+          // In replay mode, always set lapMax to maximum available
+          if (replayConfig.enabled) {
+            nextMax = maxLapNum;
+          }
+
           appState.raceTrace.lapMin = nextMin;
           appState.raceTrace.lapMax = nextMax;
           renderRaceTraceLapInputsFromState();
@@ -4481,6 +4486,17 @@
       const listener = (eventData) => {
         // Only update if race-trace panel is active (optimization)
         if (appState.currentActiveTab !== 'race-trace') return;
+
+        // In replay mode, update lapMax to show all available laps
+        const sessionData = eventData.sessionData;
+        if (sessionData && sessionData.length > 0) {
+          const lapNumbers = sessionData.map(r => parseInt(r.lap_LapNumber)).filter(n => !isNaN(n));
+          if (lapNumbers.length > 0) {
+            const maxLapNum = Math.max(...lapNumbers);
+            appState.raceTrace.lapMax = maxLapNum;
+            renderRaceTraceLapInputsFromState();
+          }
+        }
 
         calculateRaceTraceGaps(eventData.sessionData);
         buildRaceTraceDriverList();
