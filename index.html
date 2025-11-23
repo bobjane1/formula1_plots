@@ -3977,13 +3977,6 @@
           renderRaceTraceLapInputsFromState();
           calculateRaceTraceGaps(sessionData);
           buildRaceTraceDriverList();
-
-          // Restore driver selections from state AFTER building the list
-          // (so raceTraceDriverLines is populated)
-          if (appState.selectedDrivers.size === 0) {
-            restoreDataDependentSelections('race-trace');
-          }
-
           renderRaceTraceChart();
           break;
         case 'lap-time':
@@ -4006,17 +3999,6 @@
 
           // Process lap time data with shared filters
           processLapTimeData(sessionData);
-
-          // Restore driver selections from state AFTER processing data
-          // (so lapTimeCurrentGroups is populated)
-          if (appState.selectedDrivers.size === 0 && lapTimeCurrentGroups.size > 0) {
-            restoreDataDependentSelections('lap-time');
-            // Re-render to show the selected drivers
-            const drivers = Array.from(lapTimeCurrentGroups.keys());
-            buildLapTimeDriversList(drivers);
-            renderLapTimeChart();
-            renderLapTimeSummaryTable();
-          }
           break;
         case 'tyre-deg':
           // Initialize tyre deg panel
@@ -4242,6 +4224,50 @@
       onSessionChange();
     }
 
+    function selectTopDriversFromSessionData(sessionData) {
+      // Extract all drivers from session data and select top 5 by finishing position
+      if (!sessionData || sessionData.length === 0) return;
+
+      // Group data by driver to find their finishing position
+      const driverInfo = new Map();
+      sessionData.forEach(row => {
+        const driver = String(row.lap_Driver || "").trim();
+        const lapNum = parseInt(row.lap_LapNumber);
+        const position = parseInt(row.lap_Position);
+
+        if (!driver) return;
+
+        if (!driverInfo.has(driver)) {
+          driverInfo.set(driver, { driver, maxLapNum: 0, lastPosition: null });
+        }
+
+        const info = driverInfo.get(driver);
+        if (!isNaN(lapNum) && lapNum > info.maxLapNum) {
+          info.maxLapNum = lapNum;
+          if (!isNaN(position)) {
+            info.lastPosition = position;
+          }
+        }
+      });
+
+      // Sort drivers by finishing order (position at their last lap)
+      const drivers = Array.from(driverInfo.values());
+      drivers.sort((a, b) => {
+        // Drivers with valid positions come first, sorted by position
+        if (a.lastPosition !== null && b.lastPosition !== null) {
+          return a.lastPosition - b.lastPosition;
+        }
+        if (a.lastPosition !== null) return -1;
+        if (b.lastPosition !== null) return 1;
+        // If neither has position, sort by who completed more laps
+        return b.maxLapNum - a.maxLapNum;
+      });
+
+      // Select top 5 drivers
+      const top5 = drivers.slice(0, 5).map(d => d.driver);
+      top5.forEach(driver => appState.selectedDrivers.add(driver));
+    }
+
     function onSessionChange() {
       const selectedSeason = seasonSel.value;
       const selectedGP = gpSel.value;
@@ -4274,6 +4300,8 @@
       // Clear selected drivers when a new session is selected (unless restoring from permalink)
       if (!window.permalinkSession || !window.permalinkSession.isRestoring) {
         appState.selectedDrivers.clear();
+        // Select top 5 drivers for the new session (unconditionally, regardless of active tab)
+        selectTopDriversFromSessionData(currentSessionDataUnfiltered);
       }
 
       // Apply circuit config once for the new session (before initializing any panels)
