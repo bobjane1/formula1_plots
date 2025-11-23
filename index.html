@@ -4322,43 +4322,12 @@
       // Extract all drivers from session data and select top 5 by finishing position
       if (!sessionData || sessionData.length === 0) return;
 
-      // Group data by driver to find their finishing position
-      const driverInfo = new Map();
-      sessionData.forEach(row => {
-        const driver = String(row.lap_Driver || "").trim();
-        const lapNum = parseInt(row.lap_LapNumber);
-        const position = parseInt(row.lap_Position);
-
-        if (!driver) return;
-
-        if (!driverInfo.has(driver)) {
-          driverInfo.set(driver, { driver, maxLapNum: 0, lastPosition: null });
-        }
-
-        const info = driverInfo.get(driver);
-        if (!isNaN(lapNum) && lapNum > info.maxLapNum) {
-          info.maxLapNum = lapNum;
-          if (!isNaN(position)) {
-            info.lastPosition = position;
-          }
-        }
-      });
-
-      // Sort drivers by finishing order (position at their last lap)
-      const drivers = Array.from(driverInfo.values());
-      drivers.sort((a, b) => {
-        // Drivers with valid positions come first, sorted by position
-        if (a.lastPosition !== null && b.lastPosition !== null) {
-          return a.lastPosition - b.lastPosition;
-        }
-        if (a.lastPosition !== null) return -1;
-        if (b.lastPosition !== null) return 1;
-        // If neither has position, sort by who completed more laps
-        return b.maxLapNum - a.maxLapNum;
-      });
+      // Extract finishing info and sort drivers using shared utilities
+      const driverFinishInfo = extractDriverFinishingInfo(sessionData);
+      const sortedDrivers = sortDriversByFinishingOrder(driverFinishInfo);
 
       // Select top 5 drivers
-      const top5 = drivers.slice(0, 5).map(d => d.driver);
+      const top5 = sortedDrivers.slice(0, 5).map(d => d.driver);
       top5.forEach(driver => appState.selectedDrivers.add(driver));
     }
 
@@ -4605,20 +4574,12 @@
             driver: driver,
             gridPosition: gridPos,
             laps: new Map(),
-            stints: new Map(),
-            maxLapNum: 0,
-            lastPosition: null
+            stints: new Map()
           });
         }
 
         const data = driverData.get(driver);
         data.laps.set(lapNum, { compound, stint, tyreLife, position });
-
-        // Track max lap number and position on that lap
-        if (lapNum > data.maxLapNum) {
-          data.maxLapNum = lapNum;
-          data.lastPosition = position;
-        }
 
         if (!data.stints.has(stint)) {
           data.stints.set(stint, {
@@ -4643,8 +4604,20 @@
       const schedLaps = parseInt(rows[0]?.sched_laps || 0);
       const maxLap = schedLaps > 0 ? schedLaps : Math.max(...Array.from(driverData.values()).flatMap(d => Array.from(d.laps.keys())));
 
-      // Sort drivers by finishing position using shared utility
-      const sortedDrivers = sortDriversByFinishingOrder(Array.from(driverData.values()));
+      // Extract finishing info and sort drivers using shared utilities
+      const driverFinishingInfo = extractDriverFinishingInfo(rows);
+      const sortedDriverFinishingInfo = sortDriversByFinishingOrder(driverFinishingInfo);
+
+      // Build sorted driver data array for rendering (merge stint/lap data with finishing info)
+      const sortedDrivers = sortedDriverFinishingInfo.map(finishInfo => {
+        const data = driverData.get(finishInfo.driver);
+        return {
+          ...data,
+          driver: finishInfo.driver,
+          maxLapNum: finishInfo.maxLapNum,
+          lastPosition: finishInfo.lastPosition
+        };
+      }).filter(data => data.laps); // Filter out any drivers not in driverData
 
       // Clear chart
       strategyChart.innerHTML = '';
@@ -5495,15 +5468,9 @@ function updateSelectedDrivers(mutator, options = {}) {
         raceTraceDriverList.innerHTML = '';
         return;
       }
-      const driverFinishInfo = drivers.map(driver => {
-        const data = raceTraceDriverLines[driver];
-        const maxLapNum = Math.max(...data.laps);
-        const lastLapIndex = data.laps.indexOf(maxLapNum);
-        const lastPosition = data.positions[lastLapIndex];
 
-        return { driver, maxLapNum, lastPosition };
-      });
-
+      // Extract finishing info and sort drivers using shared utilities
+      const driverFinishInfo = extractDriverFinishingInfo(raceTraceCurrentSessionRows);
       const sortedDriverFinishInfo = sortDriversByFinishingOrder(driverFinishInfo);
       raceTraceAvailableDrivers = sortedDriverFinishInfo.map(({ driver }) => driver);
 
@@ -6558,31 +6525,9 @@ function updateSelectedDrivers(mutator, options = {}) {
      * This must be called before filters are applied to get accurate finishing positions
      */
     function determineFinishingOrder(unfilteredRows) {
-      const driverPositions = new Map();
-
-      unfilteredRows.forEach(r => {
-        const driver = String(r.lap_Driver || "").trim();
-        const lapNumber = parseInt(r.lap_LapNumber);
-        const position = parseInt(r.lap_Position);
-
-        if (!driver || isNaN(lapNumber) || isNaN(position)) return;
-
-        if (!driverPositions.has(driver)) {
-          driverPositions.set(driver, {
-            driver: driver,
-            maxLapNum: 0,
-            lastPosition: null
-          });
-        }
-
-        const data = driverPositions.get(driver);
-        if (lapNumber > data.maxLapNum) {
-          data.maxLapNum = lapNumber;
-          data.lastPosition = position;
-        }
-      });
-
-      return sortDriversByFinishingOrder(Array.from(driverPositions.values()));
+      // Extract finishing info and sort drivers using shared utilities
+      const driverFinishInfo = extractDriverFinishingInfo(unfilteredRows);
+      return sortDriversByFinishingOrder(driverFinishInfo);
     }
 
     function processLapTimeData(sessionData) {

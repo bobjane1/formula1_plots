@@ -692,6 +692,43 @@ const DriverInfo = {
   }
 };
 
+// Utility function to extract driver finishing information from session data
+// Takes an array of session rows and extracts driver, maxLapNum, and lastPosition
+// Returns an array of { driver, maxLapNum, lastPosition } objects
+function extractDriverFinishingInfo(sessionRows) {
+  if (!sessionRows || sessionRows.length === 0) {
+    return [];
+  }
+
+  const driverInfo = new Map();
+
+  sessionRows.forEach(row => {
+    const driver = String(row.lap_Driver || "").trim();
+    const lapNumber = parseInt(row.lap_LapNumber);
+    const position = parseInt(row.lap_Position);
+
+    if (!driver || isNaN(lapNumber)) return;
+
+    if (!driverInfo.has(driver)) {
+      driverInfo.set(driver, {
+        driver: driver,
+        maxLapNum: 0,
+        lastPosition: null
+      });
+    }
+
+    const info = driverInfo.get(driver);
+    if (lapNumber > info.maxLapNum) {
+      info.maxLapNum = lapNumber;
+      if (!isNaN(position)) {
+        info.lastPosition = position;
+      }
+    }
+  });
+
+  return Array.from(driverInfo.values());
+}
+
 // Utility function to sort drivers by finishing order
 // Takes an array of driver objects with maxLapNum and lastPosition properties
 // Returns a sorted array (does not modify the original)
@@ -717,4 +754,5 @@ window.DataCache = DataCache;
 window.ParsedDataCache = ParsedDataCache;
 window.UIHelpers = UIHelpers;
 window.DriverInfo = DriverInfo;
+window.extractDriverFinishingInfo = extractDriverFinishingInfo;
 window.sortDriversByFinishingOrder = sortDriversByFinishingOrder;
