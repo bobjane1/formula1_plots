@@ -386,39 +386,18 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 3px;
+      gap: 6px;
     }
 
     .timing-tyre-age {
-      color: white;
       font-size: 10px;
+      font-weight: 500;
     }
 
-    .timing-tyre-icon {
-      width: 16px;
-      height: 16px;
-      border-radius: 50%;
-      border: 2px solid;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 8px;
+    .timing-tyre-compound {
+      font-size: 10px;
       font-weight: 700;
-    }
-
-    .timing-tyre-icon.hard {
-      border-color: white;
-      color: white;
-    }
-
-    .timing-tyre-icon.medium {
-      border-color: #FFE300;
-      color: #FFE300;
-    }
-
-    .timing-tyre-icon.soft {
-      border-color: #ff3333;
-      color: #ff3333;
+      text-transform: uppercase;
     }
 
     /* ========================================================================
@@ -4886,6 +4865,19 @@
        TIMING TAB FUNCTIONS
        ======================================================================== */
 
+    // Get F1 tire color based on compound
+    function getTimingTireColor(compound) {
+      const compoundLower = String(compound || "").trim().toLowerCase();
+      const colorMap = {
+        'soft': '#FF0000',
+        'medium': '#FFF200',
+        'hard': '#FFFFFF',
+        'intermediate': '#00FF00',
+        'wet': '#0000FF'
+      };
+      return colorMap[compoundLower] || '#999999';
+    }
+
     // Format lap time as mm:ss.xxx
     function formatTimingLapTime(seconds) {
       if (!seconds || isNaN(seconds)) return '';
@@ -4946,7 +4938,7 @@
             sector1: parseFloat(r.lap_Sector1Time),
             sector2: parseFloat(r.lap_Sector2Time),
             sector3: parseFloat(r.lap_Sector3Time),
-            tyreCompound: String(r.tyre_Compound || "").trim(),
+            tyreCompound: String(r.lap_Compound || "").trim(),
             tyreLife: parseInt(r.lap_TyreLife),
             isPersonalBest: String(r.lap_IsPersonalBest || "").toLowerCase() === 'true',
             finishStatus: shouldShowStatus ? finishStatus : ''
@@ -5223,14 +5215,16 @@
 
         // Tyre
         html += '<td><div class="timing-tyre">';
-        if (d.tyreLife) {
-          html += `<span class="timing-tyre-age">${d.tyreLife}</span>`;
-        }
-        if (d.tyreCompound) {
-          const compound = d.tyreCompound.charAt(0).toUpperCase();
-          const tyreClass = d.tyreCompound.toLowerCase().startsWith('h') ? 'hard' :
-                          d.tyreCompound.toLowerCase().startsWith('m') ? 'medium' : 'soft';
-          html += `<div class="timing-tyre-icon ${tyreClass}">${compound}</div>`;
+        if (d.tyreCompound || d.tyreLife) {
+          const color = d.tyreCompound ? getTimingTireColor(d.tyreCompound) : '#FFFFFF';
+          const compound = d.tyreCompound ? d.tyreCompound.charAt(0).toUpperCase() : '';
+
+          if (d.tyreLife) {
+            html += `<span class="timing-tyre-age" style="color: ${color};">${d.tyreLife}</span>`;
+          }
+          if (compound) {
+            html += `<span class="timing-tyre-compound" style="color: ${color};">${compound}</span>`;
+          }
         }
         html += '</div></td>';
 
