@@ -93,19 +93,26 @@
     }
 
     .tab-navigation #reloadDataBtn,
-    .tab-navigation #replayBtn,
-    .tab-navigation #spoilerModeBtn {
+    .tab-navigation #modeBtn {
       padding: 8px 16px;
       font-size: 12px;
       border-radius: 8px;
     }
 
-    .tab-navigation #replayBtn.active {
+    .tab-navigation #modeBtn.mode-replay {
       background: #ff3333 !important;
       color: #fff !important;
       font-weight: 600;
       border-color: #ff3333 !important;
       box-shadow: 0 0 12px rgba(255, 51, 51, 0.5);
+    }
+
+    .tab-navigation #modeBtn.mode-spoiler {
+      background: #00bcd4 !important;
+      color: #fff !important;
+      font-weight: 600;
+      border-color: #00bcd4 !important;
+      box-shadow: 0 0 12px rgba(0, 188, 212, 0.5);
     }
 
     /* Session Selector */
@@ -1554,7 +1561,7 @@
     }
 
     .spoiler-button {
-      padding: 10px 18px;
+      padding: 14px 20px;
       border-radius: 8px;
       border: none;
       cursor: pointer;
@@ -1562,6 +1569,17 @@
       background: var(--accent-color);
       color: #050505;
       transition: opacity 0.2s ease;
+      text-align: center;
+      line-height: 1.4;
+      min-width: 180px;
+    }
+
+    .spoiler-button small {
+      font-weight: 400;
+      font-size: 11px;
+      opacity: 0.8;
+      display: block;
+      margin-top: 4px;
     }
 
     .spoiler-button.secondary {
@@ -1621,20 +1639,29 @@
       font-size: 13px;
       color: var(--accent-color);
     }
-
-    #spoilerModeBtn {
-      margin-left: 8px;
-    }
   </style>
 </head>
 <body>
   <div id="spoilerOverlay" class="spoiler-overlay">
     <div class="spoiler-modal">
-      <h2>Enable Spoiler Mode?</h2>
-      <p>Hide any sessions you have not watched yet.</p>
+      <div id="spoilerChoiceHeader">
+        <h2>Choose Your Viewing Mode</h2>
+        <p>Select how you'd like to watch Formula 1 sessions.</p>
+      </div>
+      <div id="spoilerConfigHeader" class="hidden">
+        <h2>Enable Spoiler Mode?</h2>
+        <p>Select the last session you've watched</p>
+      </div>
       <div id="spoilerChoiceSection" class="spoiler-choice">
-        <button id="spoilerEnableBtn" class="spoiler-button">Enable Spoiler Mode</button>
-        <button id="spoilerSkipBtn" class="spoiler-button secondary">No Thanks</button>
+        <button id="spoilerEnableBtn" class="spoiler-button">
+          <strong>Spoiler Mode</strong><br>
+          <small>Hide sessions you haven't watched yet</small>
+        </button>
+        <button id="replayModeBtn" class="spoiler-button">
+          <strong>Replay Mode</strong><br>
+          <small>Watch a session lap by lap</small>
+        </button>
+        <button id="spoilerSkipBtn" class="spoiler-button secondary">Skip</button>
       </div>
       <div id="spoilerConfigSection" class="spoiler-config-grid hidden">
         <div class="spoiler-field">
@@ -1658,7 +1685,6 @@
         <div class="spoiler-actions">
           <button id="spoilerSaveBtn" class="spoiler-button">Save & Continue</button>
           <button id="spoilerBackBtn" class="spoiler-button secondary">Back</button>
-          <button id="spoilerDisableBtn" class="spoiler-button link">Disable Spoiler Mode</button>
         </div>
         <div id="spoilerConfigStatus" class="spoiler-status"></div>
       </div>
@@ -1689,8 +1715,7 @@
         </div>
         <div class="spoiler-actions">
           <button id="replaySaveBtn" class="spoiler-button">Start Replay</button>
-          <button id="replayCancelBtn" class="spoiler-button secondary">Cancel</button>
-          <button id="replayDisableBtn" class="spoiler-button link hidden">Exit Replay Mode</button>
+          <button id="replayBackBtn" class="spoiler-button secondary">Back</button>
         </div>
         <div id="replayConfigStatus" class="spoiler-status"></div>
       </div>
@@ -1710,8 +1735,7 @@
       <button class="tab-button" data-tab="track-temp" data-tooltip="Plots the mean track temperature vs lap">Track Temp</button>
       <span class="status-message" id="statusMessage">Loading...</span>
       <button id="reloadDataBtn" type="button" title="Reload data from server">Reload Data</button>
-      <button id="replayBtn" type="button" title="Replay session">Replay</button>
-      <button id="spoilerModeBtn" type="button" title="Adjust spoiler settings">Spoiler</button>
+      <button id="modeBtn" type="button" title="Configure viewing mode">Mode: Off</button>
       <button id="copyPermalinkBtn" type="button" data-tooltip="Copy permalink URL to clipboard">Permalink</button>
     </div>
 
@@ -2264,19 +2288,20 @@
     const sessionSel = document.getElementById("sessionSel");
     const statusMessage = document.getElementById("statusMessage");
     const reloadDataBtn = document.getElementById("reloadDataBtn");
-    const replayBtn = document.getElementById("replayBtn");
-    const spoilerModeBtn = document.getElementById("spoilerModeBtn");
+    const modeBtn = document.getElementById("modeBtn");
     const spoilerOverlay = document.getElementById('spoilerOverlay');
+    const spoilerChoiceHeader = document.getElementById('spoilerChoiceHeader');
+    const spoilerConfigHeader = document.getElementById('spoilerConfigHeader');
     const spoilerChoiceSection = document.getElementById('spoilerChoiceSection');
     const spoilerConfigSection = document.getElementById('spoilerConfigSection');
     const spoilerSeasonSelect = document.getElementById('spoilerSeasonSelect');
     const spoilerGPSelect = document.getElementById('spoilerGPSelect');
     const spoilerSessionSelect = document.getElementById('spoilerSessionSelect');
     const spoilerEnableBtn = document.getElementById('spoilerEnableBtn');
+    const replayModeBtn = document.getElementById('replayModeBtn');
     const spoilerSkipBtn = document.getElementById('spoilerSkipBtn');
     const spoilerSaveBtn = document.getElementById('spoilerSaveBtn');
     const spoilerBackBtn = document.getElementById('spoilerBackBtn');
-    const spoilerDisableBtn = document.getElementById('spoilerDisableBtn');
     const spoilerConfigStatus = document.getElementById('spoilerConfigStatus');
     const replayOverlay = document.getElementById('replayOverlay');
     const replayConfigSection = document.getElementById('replayConfigSection');
@@ -2284,8 +2309,7 @@
     const replayGPSelect = document.getElementById('replayGPSelect');
     const replaySessionSelect = document.getElementById('replaySessionSelect');
     const replaySaveBtn = document.getElementById('replaySaveBtn');
-    const replayCancelBtn = document.getElementById('replayCancelBtn');
-    const replayDisableBtn = document.getElementById('replayDisableBtn');
+    const replayBackBtn = document.getElementById('replayBackBtn');
     const replayConfigStatus = document.getElementById('replayConfigStatus');
     const sessionSelector = document.getElementById('sessionSelector');
     const replayControlPanel = document.getElementById('replayControlPanel');
@@ -2556,9 +2580,6 @@
           populateReplaySeasonOptions();
         }
       }
-      if (replayConfig.enabled) {
-        replayDisableBtn.classList.remove('hidden');
-      }
     }
 
     function closeReplayOverlay() {
@@ -2567,13 +2588,22 @@
       document.body.style.overflow = '';
     }
 
-    function updateReplayButtonState() {
-      if (!replayBtn) return;
-      replayBtn.textContent = replayConfig.enabled ? 'Replay: ON' : 'Replay';
+    function updateModeButtonState() {
+      if (!modeBtn) return;
+
+      // Remove all mode classes
+      modeBtn.classList.remove('mode-off', 'mode-replay', 'mode-spoiler');
+
+      // Determine current mode and update button
       if (replayConfig.enabled) {
-        replayBtn.classList.add('active');
+        modeBtn.textContent = 'Mode: Replay';
+        modeBtn.classList.add('mode-replay');
+      } else if (spoilerConfig.enabled) {
+        modeBtn.textContent = 'Mode: Spoiler';
+        modeBtn.classList.add('mode-spoiler');
       } else {
-        replayBtn.classList.remove('active');
+        modeBtn.textContent = 'Mode: Off';
+        modeBtn.classList.add('mode-off');
       }
     }
 
@@ -3009,19 +3039,18 @@
     // Expose to global scope for DataCache.reloadData
     window.deleteSpoilerCookie = deleteSpoilerCookie;
 
-    function updateSpoilerModeButtonState() {
-      if (!spoilerModeBtn) return;
-      spoilerModeBtn.textContent = spoilerConfig.enabled ? 'Spoiler: ON' : 'Spoiler: OFF';
-    }
-
     function showSpoilerChoiceView() {
       if (!spoilerChoiceSection || !spoilerConfigSection) return;
+      spoilerChoiceHeader.classList.remove('hidden');
+      spoilerConfigHeader.classList.add('hidden');
       spoilerChoiceSection.classList.remove('hidden');
       spoilerConfigSection.classList.add('hidden');
     }
 
     function showSpoilerConfigFormView() {
       if (!spoilerChoiceSection || !spoilerConfigSection) return;
+      spoilerChoiceHeader.classList.add('hidden');
+      spoilerConfigHeader.classList.remove('hidden');
       spoilerChoiceSection.classList.add('hidden');
       spoilerConfigSection.classList.remove('hidden');
       if (spoilerConfigStatus) spoilerConfigStatus.textContent = '';
@@ -3265,7 +3294,7 @@
       };
       spoilerDecisionResolved = true;
       saveSpoilerConfigToCookie(spoilerConfig);
-      updateSpoilerModeButtonState();
+      updateModeButtonState();
       if (spoilerConfigStatus) spoilerConfigStatus.textContent = '';
       closeSpoilerOverlay();
       maybeInitializeAfterPrereqs({ preserveSelection: false });
@@ -3284,11 +3313,34 @@
         return;
       }
 
+      // Check if data is ready
+      if (!rawDataReady) {
+        if (replayConfigStatus) {
+          replayConfigStatus.textContent = 'Data is still loading. Please wait...';
+        }
+        return;
+      }
+
+      // Disable spoiler mode if it's enabled (only one mode can be active)
+      if (spoilerConfig.enabled) {
+        spoilerConfig = {
+          enabled: false,
+          lastSeason: null,
+          lastRound: null,
+          lastSessionType: null,
+          lastMeetingName: null
+        };
+        saveSpoilerConfigToCookie(spoilerConfig);
+      }
+
       // Stop any ongoing playback when selecting a new session
       pauseReplay();
 
       // Enable replay mode
       replayConfig.enabled = true;
+
+      // Apply spoiler filter to populate allRows from allRowsRaw
+      applySpoilerFilter();
 
       // Reset all filters to show everything
       appState.filters.minLap = 0;
@@ -3302,6 +3354,9 @@
       appState.filters.includeRetired = true;
       appState.tyreDeg.filterMinRows = 0;
       appState.tyreDeg.filterMinCorr = -1.0;
+
+      // Populate seasons dropdown first
+      UIHelpers.populateSeasons(seasonSel, sessionsByKey, {});
 
       // Update main session selectors to match replay selection
       seasonSel.value = season;
@@ -3320,7 +3375,7 @@
       // Trigger session change to load data
       onSessionChange();
 
-      updateReplayButtonState();
+      updateModeButtonState();
       updateReplaySessionText();
       toggleSessionSelector();
       if (replayConfigStatus) replayConfigStatus.textContent = '';
@@ -3330,15 +3385,17 @@
       initializeReplaySlider();
     }
 
-    function handleReplayCancelSelection() {
+    function handleReplayBackToChoice() {
       closeReplayOverlay();
+      showSpoilerChoiceView();
+      openSpoilerOverlay({ forceConfig: false });
     }
 
     function handleReplayDisable() {
       // Disable replay mode (session stays the same, just show normal selector)
       pauseReplay(); // Stop any ongoing playback
       replayConfig.enabled = false;
-      updateReplayButtonState();
+      updateModeButtonState();
       toggleSessionSelector();
       closeReplayOverlay();
 
@@ -3376,6 +3433,33 @@
         return;
       }
 
+      // Disable replay mode if it's enabled (only one mode can be active)
+      if (replayConfig.enabled) {
+        pauseReplay();
+        replayConfig.enabled = false;
+        toggleSessionSelector();
+
+        // Reset data to unfiltered state
+        currentSessionData = currentSessionDataUnfiltered;
+        previousFilteredDataLength = 0;
+
+        // Reset filters to default values
+        appState.filters.minLap = 1;
+        appState.filters.endLaps = 1;
+        appState.filters.minStintLap = 2;
+        appState.filters.minDist = 3;
+        appState.filters.rainfall = false;
+        appState.filters.safetyCar = false;
+        appState.filters.pitLaps = false;
+        appState.filters.includeLapped = true;
+        appState.filters.includeRetired = true;
+
+        // Re-initialize current panel with unfiltered data and default filters
+        if (currentSessionData && currentSessionData.length >= 0) {
+          initializePanel(appState.currentActiveTab, currentSessionData);
+        }
+      }
+
       const [round, meetingName] = gpValue.split('||');
       handleSpoilerSelectionSaved({
         enabled: true,
@@ -3387,6 +3471,36 @@
     }
 
     function handleSpoilerSkipChoice() {
+      // Disable both spoiler and replay modes
+
+      // Disable replay mode if enabled
+      if (replayConfig.enabled) {
+        pauseReplay();
+        replayConfig.enabled = false;
+        toggleSessionSelector();
+
+        // Reset data to unfiltered state
+        currentSessionData = currentSessionDataUnfiltered;
+        previousFilteredDataLength = 0;
+
+        // Reset filters to default values
+        appState.filters.minLap = 1;
+        appState.filters.endLaps = 1;
+        appState.filters.minStintLap = 2;
+        appState.filters.minDist = 3;
+        appState.filters.rainfall = false;
+        appState.filters.safetyCar = false;
+        appState.filters.pitLaps = false;
+        appState.filters.includeLapped = true;
+        appState.filters.includeRetired = true;
+
+        // Re-initialize current panel with unfiltered data and default filters
+        if (currentSessionData && currentSessionData.length >= 0) {
+          initializePanel(appState.currentActiveTab, currentSessionData);
+        }
+      }
+
+      // Disable spoiler mode
       handleSpoilerSelectionSaved({ enabled: false });
     }
 
@@ -3410,18 +3524,15 @@
         };
         spoilerDecisionResolved = true;
       }
-      updateSpoilerModeButtonState();
+      updateModeButtonState();
     }
 
     function setupReplayEventListeners() {
       if (replaySaveBtn) {
         replaySaveBtn.addEventListener('click', handleReplaySaveSelection);
       }
-      if (replayCancelBtn) {
-        replayCancelBtn.addEventListener('click', handleReplayCancelSelection);
-      }
-      if (replayDisableBtn) {
-        replayDisableBtn.addEventListener('click', handleReplayDisable);
+      if (replayBackBtn) {
+        replayBackBtn.addEventListener('click', handleReplayBackToChoice);
       }
       if (replaySeasonSelect) {
         replaySeasonSelect.addEventListener('change', () => {
@@ -3482,6 +3593,12 @@
       if (spoilerEnableBtn) {
         spoilerEnableBtn.addEventListener('click', () => showSpoilerConfigFormView());
       }
+      if (replayModeBtn) {
+        replayModeBtn.addEventListener('click', () => {
+          closeSpoilerOverlay();
+          openReplayOverlay();
+        });
+      }
       if (spoilerSkipBtn) {
         spoilerSkipBtn.addEventListener('click', handleSpoilerSkipChoice);
       }
@@ -3490,14 +3607,6 @@
       }
       if (spoilerBackBtn) {
         spoilerBackBtn.addEventListener('click', handleSpoilerBackToChoice);
-      }
-      if (spoilerDisableBtn) {
-        spoilerDisableBtn.addEventListener('click', handleSpoilerDisableChoice);
-      }
-      if (spoilerModeBtn) {
-        spoilerModeBtn.addEventListener('click', () => {
-          openSpoilerOverlay({ forceConfig: true });
-        });
       }
       if (spoilerSeasonSelect) {
         spoilerSeasonSelect.addEventListener('change', () => {
@@ -4177,8 +4286,8 @@
       if (!spoilerDecisionResolved) {
         openSpoilerOverlay();
       }
-      updateSpoilerModeButtonState();
-      updateReplayButtonState();
+      updateModeButtonState();
+      updateModeButtonState();
 
       initTabNavigation();
 
@@ -4187,9 +4296,15 @@
         DataCache.reloadData();
       });
 
-      // Set up replay button
-      replayBtn.addEventListener('click', () => {
-        openReplayOverlay();
+      // Set up mode button
+      modeBtn.addEventListener('click', () => {
+        if (replayConfig.enabled) {
+          // If replay mode is active, open replay overlay
+          openReplayOverlay();
+        } else {
+          // Otherwise, open choice modal (or spoiler config if already enabled)
+          openSpoilerOverlay({ forceConfig: false });
+        }
       });
 
       // Set up copy permalink button
