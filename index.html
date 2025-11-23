@@ -165,6 +165,15 @@
       text-align: center;
     }
 
+    .replay-lap-display {
+      flex-shrink: 0;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-color);
+      min-width: 60px;
+      text-align: center;
+    }
+
     .replay-slider::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
@@ -1708,6 +1717,9 @@
         <div class="replay-time-display">
           <span id="replayCurrentTime">00:00:00</span>
         </div>
+        <div class="replay-lap-display">
+          <span id="replayCurrentLap">Lap 1</span>
+        </div>
       </div>
       <div class="replay-session-info">
         <span id="replaySessionText">No session selected</span>
@@ -2257,6 +2269,7 @@
     const replaySlider = document.getElementById('replaySlider');
     const replaySessionText = document.getElementById('replaySessionText');
     const replayCurrentTime = document.getElementById('replayCurrentTime');
+    const replayCurrentLap = document.getElementById('replayCurrentLap');
 
     let allRows = [];
     let allRowsRaw = [];
@@ -2493,22 +2506,65 @@
         return;
       }
 
-      // Get max session time from current session data
-      const times = currentSessionData.map(r => parseFloat(r.lap_Time)).filter(t => !isNaN(t));
-      if (times.length === 0) return;
+      // Get min lap start time and max lap end time from current session data
+      const startTimes = currentSessionData.map(r => parseFloat(r.lap_LapStartTime)).filter(t => !isNaN(t));
+      const endTimes = currentSessionData.map(r => parseFloat(r.lap_Time)).filter(t => !isNaN(t));
 
-      const maxTime = Math.max(...times);
+      if (startTimes.length === 0 || endTimes.length === 0) return;
 
-      replaySlider.min = 0;
+      const minTime = Math.min(...startTimes);
+      const maxTime = Math.max(...endTimes);
+
+      replaySlider.min = minTime;
       replaySlider.max = maxTime;
-      replaySlider.value = 0;
+      replaySlider.value = minTime;
 
-      updateReplayTimeDisplay(0);
+      updateReplayTimeDisplay(minTime);
+      updateReplayLapDisplay(minTime);
     }
 
     function updateReplayTimeDisplay(time) {
       if (replayCurrentTime) {
         replayCurrentTime.textContent = formatSessionTime(time);
+      }
+    }
+
+    function calculateCurrentLap(currentTime) {
+      if (!currentSessionData || currentSessionData.length === 0) {
+        return 1;
+      }
+
+      // Get scheduled laps for the session
+      const schedLaps = currentSessionData.length > 0 ? parseInt(currentSessionData[0].sched_laps) : null;
+
+      // Find the highest lap number where lap is completed (lap_Time < currentTime)
+      let maxCompletedLap = 0;
+
+      for (const row of currentSessionData) {
+        // lap_Time is the session time at the end of the lap
+        const lapEndTime = parseFloat(row.lap_Time);
+        const lapNumber = parseInt(row.lap_LapNumber);
+
+        if (!isNaN(lapEndTime) && !isNaN(lapNumber) && currentTime > lapEndTime) {
+          maxCompletedLap = Math.max(maxCompletedLap, lapNumber);
+        }
+      }
+
+      // Current lap is 1 + last completed lap
+      let currentLap = maxCompletedLap + 1;
+
+      // Cap at scheduled laps if available
+      if (schedLaps && !isNaN(schedLaps)) {
+        currentLap = Math.min(currentLap, schedLaps);
+      }
+
+      return currentLap;
+    }
+
+    function updateReplayLapDisplay(time) {
+      if (replayCurrentLap) {
+        const lapNumber = calculateCurrentLap(time);
+        replayCurrentLap.textContent = `Lap ${lapNumber}`;
       }
     }
 
@@ -3144,7 +3200,9 @@
       }
       if (replaySlider) {
         replaySlider.addEventListener('input', () => {
-          updateReplayTimeDisplay(parseFloat(replaySlider.value));
+          const currentTime = parseFloat(replaySlider.value);
+          updateReplayTimeDisplay(currentTime);
+          updateReplayLapDisplay(currentTime);
         });
       }
     }
