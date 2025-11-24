@@ -1732,35 +1732,43 @@
 
     .spoiler-choice {
       display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
+      flex-direction: column;
+      gap: 10px;
       margin-top: 8px;
     }
 
     .spoiler-button {
-      padding: 14px 20px;
-      border-radius: 8px;
-      border: none;
+      padding: 14px 16px;
+      border-radius: 10px;
+      border: 1px solid rgba(255,255,255,0.08);
       cursor: pointer;
-      font-weight: 600;
-      background: var(--accent-color);
-      color: #050505;
-      transition: opacity 0.2s ease;
-      text-align: center;
-      line-height: 1.4;
-      min-width: 180px;
+      font-weight: 700;
+      background: linear-gradient(135deg, rgba(0, 224, 255, 0.1), rgba(255, 255, 255, 0.04));
+      color: var(--text-color);
+      transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+      text-align: left;
+      line-height: 1.3;
+      min-width: 0;
+      width: 100%;
+    }
+
+    .spoiler-button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+      border-color: rgba(0, 224, 255, 0.4);
     }
 
     .spoiler-button small {
-      font-weight: 400;
-      font-size: 11px;
-      opacity: 0.8;
+      font-weight: 500;
+      font-size: 12px;
+      opacity: 0.85;
       display: block;
       margin-top: 4px;
+      color: var(--muted-color);
     }
 
     .spoiler-button.secondary {
-      background: transparent;
+      background: rgba(255, 255, 255, 0.04);
       border: 1px solid var(--border-color);
       color: var(--text-color);
     }
@@ -1830,6 +1838,10 @@
         <p>Select the last session you've watched</p>
       </div>
       <div id="spoilerChoiceSection" class="spoiler-choice">
+        <button id="spoilerSkipBtn" class="spoiler-button">
+          <strong>Normal Mode</strong><br>
+          <small>Show everything with no hiding or replay</small>
+        </button>
         <button id="spoilerEnableBtn" class="spoiler-button">
           <strong>Spoiler Mode</strong><br>
           <small>Hide sessions you haven't watched yet</small>
@@ -1838,7 +1850,6 @@
           <strong>Replay Mode</strong><br>
           <small>Watch a session lap by lap</small>
         </button>
-        <button id="spoilerSkipBtn" class="spoiler-button secondary">Skip</button>
       </div>
       <div id="spoilerConfigSection" class="spoiler-config-grid hidden">
         <div class="spoiler-field">
@@ -3475,11 +3486,13 @@
     }
 
     function openSpoilerOverlay(options = {}) {
-      const { forceConfig = false } = options;
+      const { forceConfig = false, forceChoice = false } = options;
       if (!spoilerOverlay) return;
       spoilerOverlay.classList.add('show');
       document.body.style.overflow = 'hidden';
-      if (forceConfig || spoilerConfig.enabled) {
+      if (forceChoice) {
+        showSpoilerChoiceView();
+      } else if (forceConfig || spoilerConfig.enabled) {
         showSpoilerConfigFormView();
       } else {
         showSpoilerChoiceView();
@@ -4738,8 +4751,8 @@
 
       // Set up mode button
       modeBtn.addEventListener('click', () => {
-        // Always open mode choice/config overlay, regardless of current mode
-        openSpoilerOverlay({ forceConfig: false });
+        // Always open mode chooser (normal/spoiler/replay), regardless of current mode
+        openSpoilerOverlay({ forceChoice: true });
       });
 
       // Set up copy permalink button
