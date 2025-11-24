@@ -258,7 +258,9 @@
     }
 
     .timing-table {
-      width: 100%;
+      width: auto;
+      max-width: 100%;
+      margin: 0 auto;
       border-collapse: collapse;
       font-family: 'Roboto Condensed', 'Arial Narrow', sans-serif;
       background: #1a1a1a;
@@ -272,7 +274,7 @@
     .timing-table th {
       color: white;
       text-transform: uppercase;
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 600;
       padding: 6px 6px;
       text-align: center;
@@ -311,24 +313,24 @@
     .timing-table th:nth-child(2),
     .timing-table td:nth-child(2) { width: 55px; }
     .timing-table th:nth-child(3),
-    .timing-table td:nth-child(3) { width: 85px; }
+    .timing-table td:nth-child(3) { width: 100px; }
     .timing-table th:nth-child(4),
-    .timing-table td:nth-child(4) { width: 70px; }
+    .timing-table td:nth-child(4) { width: 100px; }
     .timing-table th:nth-child(5),
     .timing-table td:nth-child(5),
     .timing-table th:nth-child(6),
     .timing-table td:nth-child(6),
     .timing-table th:nth-child(7),
-    .timing-table td:nth-child(7) { width: 70px; }
+    .timing-table td:nth-child(7) { width: 100px; }
     .timing-table th:nth-child(8),
-    .timing-table td:nth-child(8) { width: 70px; }
+    .timing-table td:nth-child(8) { width: 100px; }
 
     .timing-position {
       color: white;
-      font-weight: 500;
+      font-weight: 600;
       text-align: left !important;
       width: 30px;
-      font-size: 11px;
+      font-size: 13px;
     }
 
     .timing-driver {
@@ -351,7 +353,7 @@
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.2px;
-      font-size: 11px;
+      font-size: 13px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -364,13 +366,13 @@
       padding: 2px 6px;
       font-weight: 500;
       min-width: 50px;
-      font-size: 10px;
+      font-size: 11px;
     }
 
     .timing-pill.sector {
       min-width: 42px;
       padding: 2px 4px;
-      font-size: 10px;
+      font-size: 11px;
     }
 
     .timing-pill-text {
@@ -396,7 +398,7 @@
     .timing-gap {
       color: white;
       font-family: 'Roboto Mono', monospace;
-      font-size: 10px;
+      font-size: 12px;
     }
 
     .timing-retired {
@@ -414,12 +416,12 @@
     }
 
     .timing-tyre-age {
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 500;
     }
 
     .timing-tyre-compound {
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 700;
       text-transform: uppercase;
     }
@@ -1912,10 +1914,10 @@
   <div class="container">
     <!-- Tab Navigation -->
     <div class="tab-navigation">
-      <button class="tab-button" data-tab="timing">Timing</button>
+      <button class="tab-button active" data-tab="timing">Timing</button>
       <button class="tab-button" data-tab="lap-time" data-tooltip="Shows fuel- and tyre-corrected lap times for each driver by compound. See table at the bottom. 'Copy Averages To Calculator' to apply to other tab.">Lap Time</button>
       <button class="tab-button" data-tab="race-trace">Trace</button>
-      <button class="tab-button active" data-tab="strategy">Strategy</button>
+      <button class="tab-button" data-tab="strategy">Strategy</button>
       <button class="tab-button" data-tab="fuel-effect" data-tooltip="Compares laps for the same (driver, compound, tyre life) at different fuel loads. 'Select Fuel Effect' to apply to other tabs.">Fuel Effect</button>
       <button class="tab-button" data-tab="tyre-deg" data-tooltip="Computes fuel-corrected tyre deg, averages by compound. 'Select' to apply to other tabs.">Tyre Deg</button>
       <button class="tab-button" data-tab="pit-loss" data-tooltip="Compares pit in & out laps to the surrounding laps.">Pit Loss</button>
