@@ -1,4 +1,4 @@
-import logging, fastf1, numpy as np, pandas as pd, math
+import logging, fastf1, numpy as np, pandas as pd, math, os
 import statsmodels.formula.api as smf
 
 def setup_cache(offline=True):
@@ -11,6 +11,9 @@ setup_cache()
 
 def load_df():
     fn = "github/all_df.csv"
+    # if on windows the fn is different
+    if os.name == 'nt':
+        fn = "main/all_df.csv"
     df = pd.read_csv(fn, dtype={"lap_TrackStatus": str}, low_memory=False)
     return df
 
