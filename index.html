@@ -5382,7 +5382,8 @@
           if (existingDrivers.has(driver)) return;
           virtuals.push({
             driver: driver,
-            lapNum: data.lapNum || 0,
+            // Treat in-progress lap 1 as lap 0 so completed lap 1 sorts ahead
+            lapNum: data.lapNum === 1 ? 0 : (data.lapNum || 0),
             lapTime: 0,
             position: data.position || 0,
             lapDuration: null,
