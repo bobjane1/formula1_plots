@@ -5100,8 +5100,10 @@
 
       // Incorporate in-progress laps to show provisional gaps (up to completed sectors)
       timingInProgressLaps.forEach((progress, driver) => {
-        const lapNum = parseInt(progress.lapNum);
-        if (!driver || !Number.isFinite(lapNum)) return;
+        const rawLapNum = parseInt(progress.lapNum);
+        if (!driver || !Number.isFinite(rawLapNum)) return;
+        // Treat in-progress lap 1 as lap 0 so completed lap 1 always sorts ahead
+        const lapNum = rawLapNum === 1 ? 0 : rawLapNum;
 
         const startTime = Number.isFinite(progress.startTime) ? progress.startTime : null;
         const s1 = Number.isFinite(progress.s1) ? progress.s1 : null;
@@ -5150,7 +5152,7 @@
       });
 
       const leader = drivers[0];
-      console.log('[TIMING GAP] Leader', leader.driver, 'lap', leader.lapNum, 'time', leader.lapTime);
+      // console.log('[TIMING GAP] Leader', leader.driver, 'lap', leader.lapNum, 'time', leader.lapTime);
 
       // Build a map of leader's lap completions: lap number -> completion/provisional time
       const leaderLaps = new Map();
@@ -5182,15 +5184,15 @@
       }
       const maxLeaderLap = leaderLaps.size > 0 ? Math.max(...leaderLaps.keys()) : 0;
       const leaderLapEntries = Array.from(leaderLaps.entries()).map(([k, v]) => `${k}:${v}`);
-      console.log('[TIMING GAP] Leader laps', leaderLapEntries.join(', '));
+      // console.log('[TIMING GAP] Leader laps', leaderLapEntries.join(', '));
 
-      // Calculate gaps for each driver
+        // Calculate gaps for each driver
         drivers.forEach(d => {
           if (d.driver === leader.driver) {
-            d.gap = null;
+            d.gap = 0;
             d.lapped = 0;
             return;
-        }
+          }
 
         // Find which lap the leader had completed when this driver completed their latest lap
         let leaderLapAtDriverTime = 0;
@@ -5243,7 +5245,7 @@
           }
         }
 
-        console.log('[TIMING GAP] Driver', d.driver, 'lap', d.lapNum, 'lapTime', d.lapTime, 'gap', d.gap, 'leaderLapAtDriverTime', leaderLapAtDriverTime, 'leaderLap', leader.lapNum, 'leaderTime', leader.lapTime, 'leaderTimeAtSameLap', leaderLaps.get(d.lapNum));
+        // console.log('[TIMING GAP] Driver', d.driver, 'lap', d.lapNum, 'lapTime', d.lapTime, 'gap', d.gap, 'leaderLapAtDriverTime', leaderLapAtDriverTime, 'leaderLap', leader.lapNum, 'leaderTime', leader.lapTime, 'leaderTimeAtSameLap', leaderLaps.get(d.lapNum));
       });
 
       return drivers;
@@ -5419,14 +5421,54 @@
       // Find personal bests for each driver
       const personalBests = findTimingPersonalBests(sessionData);
 
-      // Sort: active drivers by position, then retired drivers
-      const activeDrivers = drivers.filter(d => {
-        const status = d.finishStatus.toLowerCase();
-        return status === '' || status === 'finished' || status === 'lapped';
-      }).sort((a, b) => (a.position || 999) - (b.position || 999));
+      // Determine sectors completed for in-progress laps (used to order drivers on same lap)
+      const sectorsCompleted = new Map();
+      timingInProgressLaps.forEach((data, driver) => {
+        let count = 0;
+        if (Number.isFinite(data.s1)) count += 1;
+        if (Number.isFinite(data.s2)) count += 1;
+        sectorsCompleted.set(driver, count);
+      });
+      // Default any driver without in-progress data to 0 sectors on the current lap
+      drivers.forEach(d => {
+        if (!sectorsCompleted.has(d.driver)) {
+          sectorsCompleted.set(d.driver, 0);
+        }
+      });
 
-      const retiredDrivers = drivers.filter(d => {
-        const status = d.finishStatus.toLowerCase();
+      // Sort drivers by progress (lap > sectors completed) then gap, then position
+      const sortedDrivers = drivers.slice().sort((a, b) => {
+        // Retired/disqualified always after active
+        const aRetired = ['retired', 'disqualified'].includes(String(a.finishStatus || '').toLowerCase());
+        const bRetired = ['retired', 'disqualified'].includes(String(b.finishStatus || '').toLowerCase());
+        if (aRetired !== bRetired) return aRetired ? 1 : -1;
+
+        // Higher lap number first
+        if (a.lapNum !== b.lapNum) return b.lapNum - a.lapNum;
+
+        // More completed sectors on current lap first
+        const aSectors = sectorsCompleted.get(a.driver) || 0;
+        const bSectors = sectorsCompleted.get(b.driver) || 0;
+        if (aSectors !== bSectors) return bSectors - aSectors;
+
+        // Smaller gap first (treat null/undefined as large)
+        const aGap = Number.isFinite(a.gap) ? a.gap : Infinity;
+        const bGap = Number.isFinite(b.gap) ? b.gap : Infinity;
+        if (aGap !== bGap) return aGap - bGap;
+
+        // Fallback: position then driver code
+        const aPos = a.position || 999;
+        const bPos = b.position || 999;
+        if (aPos !== bPos) return aPos - bPos;
+        return String(a.driver).localeCompare(String(b.driver));
+      });
+
+      const activeDrivers = sortedDrivers.filter(d => {
+        const status = String(d.finishStatus || '').toLowerCase();
+        return status === '' || status === 'finished' || status === 'lapped';
+      });
+      const retiredDrivers = sortedDrivers.filter(d => {
+        const status = String(d.finishStatus || '').toLowerCase();
         return status === 'retired' || status === 'disqualified';
       });
 
