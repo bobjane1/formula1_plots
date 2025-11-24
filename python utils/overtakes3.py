@@ -35,6 +35,32 @@ def calc_battles(gaps_by_lap, pit_stops_by_lap, safety_car_by_lap):
     ans = []
     active_pairs = {}  # key: (driver_front, driver_behind), value: {from_lap, gaps, last_positions}
 
+    def collect_post_overtake_gaps(start_lap, overtaker, overtaken):
+        """Collect gaps while overtaker stays directly ahead of overtaken."""
+        post_gaps = []
+        for lap_idx in range(start_lap - 1, len(gaps_by_lap)):
+            lap_entries = gaps_by_lap[lap_idx]
+            driver_order = [entry[0] for entry in lap_entries]
+
+            if overtaker not in driver_order or overtaken not in driver_order:
+                break
+
+            overtaker_pos = driver_order.index(overtaker)
+            overtaken_pos = driver_order.index(overtaken)
+
+            # Stop once they are no longer consecutive with overtaker ahead
+            if overtaker_pos + 1 != overtaken_pos:
+                break
+
+            gap_between = lap_entries[overtaken_pos][1] - lap_entries[overtaker_pos][1]
+            gap_to_front = None
+            if overtaker_pos > 0:
+                gap_to_front = lap_entries[overtaker_pos][1] - lap_entries[overtaker_pos - 1][1]
+
+            post_gaps.append([float(gap_between), float(gap_to_front)])
+
+        return post_gaps
+
     for lap_num, lap_data in enumerate(gaps_by_lap, start=1):
         current_pairs = set() # lap_data is list of [driver, gap_to_leader]
         pitted_drivers = pit_stops_by_lap[lap_num - 1]  # get pit stops for this lap
@@ -71,16 +97,16 @@ def calc_battles(gaps_by_lap, pit_stops_by_lap, safety_car_by_lap):
                 last_pos_front, last_pos_behind = pair_data["last_positions"]
 
                 # Determine why they're no longer consecutive
-                reason = None
+                event = None
 
                 # Check if either driver had safety car on this lap
                 if driver_front in safety_car_drivers or driver_behind in safety_car_drivers:
-                    reason = {"type": "safety_car"}
+                    event = {"type": "safety_car"}
                 # Check if either driver pitted on this lap
                 elif driver_front in pitted_drivers:
-                    reason = {"type": "pit_stop_front"}
+                    event = {"type": "pit_stop_front"}
                 elif driver_behind in pitted_drivers:
-                    reason = {"type": "pit_stop_behind"}
+                    event = {"type": "pit_stop_behind"}
                 elif driver_front in driver_positions and driver_behind in driver_positions:
                     current_pos_front = driver_positions[driver_front]
                     current_pos_behind = driver_positions[driver_behind]
@@ -88,18 +114,24 @@ def calc_battles(gaps_by_lap, pit_stops_by_lap, safety_car_by_lap):
                     if current_pos_behind < current_pos_front:
                         # Driver behind overtook driver front
                         positions_ahead = current_pos_front - current_pos_behind
-                        reason = {"type": "overtake", "pos_ahead": positions_ahead}
+                        event = {
+                            "type": "overtake",
+                            "pos_ahead": positions_ahead,
+                            "post_overtake_gaps": collect_post_overtake_gaps(
+                                lap_num, driver_behind, driver_front
+                            )
+                        }
                     else:
                         # They're further apart, determine who changed position
                         pos_change_front = current_pos_front - last_pos_front  # negative = gained positions
                         pos_change_behind = current_pos_behind - last_pos_behind  # positive = lost positions
-                        reason = {"type": "gap_grew", "pos_change_front": pos_change_front, "pos_change_behind": pos_change_behind}
+                        event = {"type": "gap_grew", "pos_change_front": pos_change_front, "pos_change_behind": pos_change_behind}
                 elif driver_front not in driver_positions:
-                    reason = {"type": "front out of race"}
+                    event = {"type": "front out of race"}
                 elif driver_behind not in driver_positions:
-                    reason = {"type": "behind out of race"}
+                    event = {"type": "behind out of race"}
 
-                pair_data["end_reason"] = reason
+                pair_data["event"] = event
                 pair_data["end_lap"] = lap_num
                 del pair_data["last_positions"]  # Remove internal tracking data
 
@@ -111,7 +143,7 @@ def calc_battles(gaps_by_lap, pit_stops_by_lap, safety_car_by_lap):
 
     # Handle pairs that lasted until the end of the race
     for pair_data in active_pairs.values():
-        pair_data["end_reason"] = {"type": "race_end"}
+        pair_data["event"] = {"type": "race_end"}
         pair_data["end_lap"] = len(gaps_by_lap)
         del pair_data["last_positions"]
         ans.append(pair_data)
@@ -138,9 +170,12 @@ def main():
         if battle["gaps"][0] - battle["gaps"][-1] < 2: continue # closed the gap
         if team_map[battle["driver_front"]] == team_map[battle["driver_behind"]]: continue # same team
 
-        print(f"{battle['driver_behind']} chasing {battle['driver_front']} for {len(battle['gaps'])} laps (lap {battle['from_lap']}-{battle['end_lap']})")
-        print(f"  Gaps: {[f'{g:.3f}' for g in battle['gaps']]}")
-        print(f"  End reason: {battle['end_reason']}")
-        print()
+        print(f"{battle['driver_behind']}|{battle['driver_front']}|{len(battle['gaps'])}|{battle['from_lap']}|{battle['end_lap']}|{battle['event']['type']}",end="|")
+        print("|".join(map(str,battle['gaps'])),end="|")
+
+        if battle['event']['type'] == 'overtake':
+            print("|".join(map(str, [x[0]*(-1) for x in battle['event']['post_overtake_gaps']])))
+        else:
+            print()
 
 main()
