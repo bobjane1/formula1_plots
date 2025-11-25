@@ -7705,10 +7705,19 @@ function updateSelectedDrivers(mutator, options = {}) {
       const filterOverlay = document.getElementById('lapTimeFilterOverlay');
       const filterClose = document.getElementById('lapTimeFilterClose');
 
+      const handleModalKeydown = (e) => {
+        if (e.key === 'Enter' || e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          closeFilterModal();
+        }
+      };
+
       const closeFilterModal = () => {
         if (filterOverlay) {
           filterOverlay.classList.remove('show');
           document.body.style.overflow = '';
+          document.removeEventListener('keydown', handleModalKeydown);
         }
       };
 
@@ -7726,6 +7735,11 @@ function updateSelectedDrivers(mutator, options = {}) {
             const topPosition = Math.max(scrollY + viewportHeight * 0.1, scrollY + 50);
             modal.style.top = topPosition + 'px';
           }
+
+          // Add Enter key listener after a short delay to avoid the same Enter press that opened the modal
+          setTimeout(() => {
+            document.addEventListener('keydown', handleModalKeydown);
+          }, 100);
         }
       };
 
