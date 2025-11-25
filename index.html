@@ -8939,6 +8939,7 @@ setupTyreDegFilterModal();
             const lapNumber = data.value[0];
             const lapTime = data.value[1];
             const info = getLapTimeDriverInfo(data.driver);
+            const stintNum = Number.isFinite(Number(data.stint)) ? parseInt(data.stint, 10) : data.stint;
 
             if (info && info.headshotUrl) {
               const fullName = info.fullName || data.driver;
@@ -8946,7 +8947,7 @@ setupTyreDegFilterModal();
               const lapInfo = `
                 <div style="margin-top:4px">Lap ${lapNumber}: ${lapTime.toFixed(3)}s</div>
                 <div>Compound: ${data.compound}</div>
-                <div>Stint: ${data.stint}</div>
+                <div>Stint: ${stintNum}</div>
               `;
               return `
                 <div style="display:flex;align-items:center;gap:10px;min-width:220px;">
@@ -8965,7 +8966,7 @@ setupTyreDegFilterModal();
               Lap: ${lapNumber}<br/>
               Time: ${lapTime.toFixed(3)}s<br/>
               Compound: ${data.compound}<br/>
-              Stint: ${data.stint}
+              Stint: ${stintNum}
             `;
           }
         },
