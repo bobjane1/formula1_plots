@@ -5775,6 +5775,10 @@
           }
         }
       });
+      // Ensure we have an entry for the leader's current lap using the latest known time
+      if (!leaderLaps.has(leader.lapNum) && Number.isFinite(leader.lapTime)) {
+        leaderLaps.set(leader.lapNum, leader.lapTime);
+      }
       // If leader is on an in-progress lap, add a provisional entry so gap calc is consistent
       if (timingInProgressLaps.has(leader.driver)) {
         const progress = timingInProgressLaps.get(leader.driver);
@@ -6087,6 +6091,16 @@
         if (aPos !== bPos) return aPos - bPos;
         return String(a.driver).localeCompare(String(b.driver));
       });
+
+      // Normalize gaps so the table leader is always gap 0 (helps mid-lap lead changes)
+      const tableLeaderGap = Number.isFinite(sortedDrivers[0]?.gap) ? sortedDrivers[0].gap : 0;
+      if (tableLeaderGap !== 0) {
+        sortedDrivers.forEach(d => {
+          if (Number.isFinite(d.gap)) {
+            d.gap = d.gap - tableLeaderGap;
+          }
+        });
+      }
 
       const activeDrivers = sortedDrivers.filter(d => {
         const status = String(d.finishStatus || '').toLowerCase();
