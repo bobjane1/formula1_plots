@@ -329,6 +329,45 @@
       background: rgba(255, 255, 255, 0.04);
     }
 
+    .timing-track-status {
+      display: none;
+      align-self: flex-end;
+      margin-bottom: 6px;
+      padding: 6px 10px;
+      border-radius: 10px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      border: 1px solid var(--border-color);
+      background: rgba(255, 255, 255, 0.05);
+      color: var(--text-color);
+    }
+
+    .timing-track-status.status-yellow {
+      background: rgba(252, 211, 77, 0.14);
+      border-color: rgba(252, 211, 77, 0.4);
+      color: #fcd34d;
+    }
+
+    .timing-track-status.status-red {
+      background: rgba(239, 68, 68, 0.14);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #f87171;
+    }
+
+    .timing-track-status.status-sc {
+      background: rgba(255, 196, 86, 0.16);
+      border-color: rgba(255, 196, 86, 0.4);
+      color: #ffc456;
+    }
+
+    .timing-track-status.status-vsc {
+      background: rgba(45, 212, 191, 0.14);
+      border-color: rgba(45, 212, 191, 0.4);
+      color: #2dd4bf;
+    }
+
     .timing-table tbody tr {
       height: 28px;
       border-bottom: 1px solid #0a0a0a;
@@ -2346,6 +2385,7 @@
           <div id="timingTableContainer"></div>
         </div>
         <div class="timing-right">
+          <div id="timingTrackStatus" class="timing-track-status" aria-live="polite"></div>
           <div class="timing-chart-row">
             <div class="lap-time-chart-wrapper">
               <div class="lap-time-controls">
@@ -5941,6 +5981,7 @@
     function renderTimingTable(sessionData, year, round, sessionType, unfilteredData = null, replayTime = null) {
       const container = document.getElementById('timingTableContainer');
       if (!container) return;
+      const trackStatusEl = document.getElementById('timingTrackStatus');
 
       // Get driver colors
       const driverColors = DriverInfo.getDriverColors(year, round, sessionType);
@@ -6077,6 +6118,45 @@
       });
 
       const gapMode = appState.timingGapMode === 'interval' ? 'interval' : 'leader';
+
+      // Track status banner (replay only, from leader's last completed lap)
+      if (trackStatusEl) {
+        trackStatusEl.style.display = 'none';
+        trackStatusEl.classList.remove('status-yellow', 'status-red', 'status-sc', 'status-vsc');
+        trackStatusEl.textContent = '';
+
+        if (replayConfig.enabled && activeDrivers.length > 0) {
+          const leaderDriver = activeDrivers[0].driver;
+          let latestLap = -1;
+          let latestStatus = '';
+
+          sessionData.forEach(r => {
+            const driver = String(r.lap_Driver || '').trim();
+            if (driver !== leaderDriver) return;
+            const lapNum = parseInt(r.lap_LapNumber);
+            if (!Number.isFinite(lapNum)) return;
+            if (lapNum > latestLap) {
+              latestLap = lapNum;
+              latestStatus = String(r.lap_TrackStatus || '').trim();
+            }
+          });
+
+          const statusInfo = (() => {
+            if (!latestStatus) return null;
+            if (latestStatus.includes('5')) return { cls: 'status-red', text: 'Red Flag' };
+            if (latestStatus.includes('4')) return { cls: 'status-sc', text: 'Safety Car' };
+            if (latestStatus.includes('6') || latestStatus.includes('7')) return { cls: 'status-vsc', text: 'VSC' };
+            if (latestStatus.includes('2')) return { cls: 'status-yellow', text: 'Yellow Flag' };
+            return null;
+          })();
+
+          if (statusInfo) {
+            trackStatusEl.textContent = statusInfo.text;
+            trackStatusEl.classList.add(statusInfo.cls);
+            trackStatusEl.style.display = 'inline-flex';
+          }
+        }
+      }
 
       // Auto-select drivers who appear for the first time in replay mode only
       if (replayConfig.enabled) {
