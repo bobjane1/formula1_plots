@@ -883,8 +883,34 @@
     .tyre-deg-controls {
       display: flex;
       justify-content: flex-end;
-      margin-bottom: 8px;
       gap: 8px;
+      flex-shrink: 0;
+      align-self: flex-start;
+      align-items: center;
+    }
+
+    .tyre-deg-header {
+      display: flex;
+      align-items: stretch;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .tyre-deg-left,
+    .tyre-deg-middle {
+      margin: 0;
+      height: 100%;
+    }
+
+    .tyre-deg-left {
+      flex: 0 0 50%;
+      min-width: 360px;
+    }
+
+    .tyre-deg-middle {
+      flex: 0 0 35%;
+      min-width: 260px;
     }
 
     .tyre-filter-overlay {
@@ -2431,33 +2457,34 @@
 
     <!-- Tyre Degradation Panel -->
     <div id="tyre-deg-panel" class="content-panel">
-      <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+      <div class="tyre-deg-header">
+        <div class="filter-panel tyre-deg-left">
+          <div class="filters-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
+            <div class="filter-item">
+              <div class="filter-label">Min Rows Per Stint</div>
+              <input type="number" id="tyreDegFilterMinRows" value="5" min="1">
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Min Correlation</div>
+              <input type="number" id="tyreDegFilterMinCorr" value="-0.5" min="-1" max="1" step="0.1">
+            </div>
+          </div>
+        </div>
+        <div class="filter-panel tyre-deg-middle">
+          <div class="filters-grid" style="grid-template-columns: 1fr;">
+            <div class="filter-item vertical">
+              <div class="filter-label">Fuel Effect (s/lap)</div>
+              <div class="slider-container">
+                <input type="range" id="tyreDegFuelEffectSlider" min="0" max="0.3" step="0.001" value="0.025">
+                <div class="slider-value" id="tyreDegFuelEffectValue">0.025</div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="tyre-deg-controls">
           <button id="tyreDegFilterBtn" class="filter-button" data-tooltip="Adjust tyre deg filters" aria-label="Adjust tyre deg filters">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-6.5 7.11v5.64L9.5 19v-7.89z"/></svg>
           </button>
-        </div>
-        <div style="flex: 1; display: flex; gap: 8px; align-items: center;">
-          <div class="filter-panel" style="flex: 0 0 50%; margin: 0;">
-            <div class="filters-title">Analysis Parameters</div>
-            <div class="filters-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
-              <div class="filter-item vertical">
-                <div class="filter-label">Fuel Effect (s/lap)</div>
-                <div class="slider-container">
-                  <input type="range" id="tyreDegFuelEffectSlider" min="0" max="0.3" step="0.001" value="0.025">
-                  <div class="slider-value" id="tyreDegFuelEffectValue">0.025</div>
-                </div>
-              </div>
-              <div class="filter-item">
-                <div class="filter-label">Min Rows Per Stint</div>
-                <input type="number" id="tyreDegFilterMinRows" value="5" min="1">
-              </div>
-              <div class="filter-item">
-                <div class="filter-label">Min Correlation</div>
-                <input type="number" id="tyreDegFilterMinCorr" value="-0.5" min="-1" max="1" step="0.1">
-              </div>
-            </div>
-          </div>
         </div>
       </div>
       <div id="tyreDegTyreChoicesDisplay" class="tyre-choices-display" style="display: none; margin-bottom: 12px;">
@@ -2508,7 +2535,6 @@
       <!-- BOTTOM: Stint Table -->
       <div id="tyreDegStintsTableContainer"></div>
     </div>
-
     <!-- Tyre Deg Filters Modal -->
     <div id="tyreDegFilterOverlay" class="tyre-filter-overlay">
       <div class="tyre-filter-modal">
@@ -2567,83 +2593,7 @@
         </div>
       </div>
     </div>
-<!-- Fuel Effect Panel -->
-    <div id="fuel-effect-panel" class="content-panel">
-      <div class="fuel-effect-controls">
-        <button id="fuelEffectFilterBtn" class="filter-button" data-tooltip="Adjust fuel effect filters" aria-label="Adjust fuel effect filters">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-6.5 7.11v5.64L9.5 19v-7.89z"/></svg>
-        </button>
-      </div>
-      <div style="width: 100%; height: 400px; margin-bottom: 12px;">
-        <div id="fuelEffectChartContainer" style="width: 100%; height: 100%; display: none;"></div>
-      </div>
-      <div id="fuelEffectCoefficientsContainer" style="display: none; padding: 12px 16px; background: rgba(0, 224, 255, 0.03); border-radius: 8px; border: 1px solid var(--border-color); margin-top: 8px;">
-        <div style="font-size: 11px; font-weight: 600; color: var(--accent-color); margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.05em;">Linear Fit Coefficients (y = mx)</div>
-        <div id="fuelEffectCoefficientsGrid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px;"></div>
-      </div>
-      <div id="fuelEffectGroupsTableContainer" style="margin-top: 12px;"></div>
-    </div>
-
-    <!-- Fuel Effect Filters Modal -->
-    <div id="fuelEffectFilterOverlay" class="fuel-filter-overlay">
-      <div class="fuel-filter-modal">
-        <div class="fuel-filter-modal-header">
-          <h3>Fuel Effect Filters</h3>
-          <button id="fuelEffectFilterClose" class="fuel-filter-close">Close</button>
-        </div>
-        <div class="fuel-filter-grid">
-          <div class="filter-panel">
-            <div class="filters-title">Lap Filters</div>
-            <div class="filters-grid" style="grid-template-columns: 1fr;">
-              <div class="filter-item vertical">
-                <div class="filter-label">Laps to Discard at Start of Race</div>
-                <input type="number" id="fuelEffectFilterMinLap" value="1" min="0">
-              </div>
-              <div class="filter-item vertical">
-                <div class="filter-label">Laps to Discard at End of Race</div>
-                <input type="number" id="fuelEffectFilterEndLaps" value="1" min="0">
-              </div>
-              <div class="filter-item vertical">
-                <div class="filter-label">Laps to Discard at Start of Stint</div>
-                <input type="number" id="fuelEffectFilterMinStintLap" value="2" min="0">
-              </div>
-              <div class="filter-item vertical">
-                <div class="filter-label">Min Distance to Car Ahead</div>
-                <input type="number" id="fuelEffectFilterMinDist" value="3" min="0" step="0.1">
-              </div>
-            </div>
-          </div>
-
-          <div class="filter-panel">
-            <div class="filters-title">Include</div>
-            <div class="exclude-checkboxes">
-              <div class="checkbox-group">
-                <input type="checkbox" id="fuelEffectFilterIncludeLapped" checked>
-                <label for="fuelEffectFilterIncludeLapped">Lapped</label>
-              </div>
-              <div class="checkbox-group">
-                <input type="checkbox" id="fuelEffectFilterIncludeRetired" checked>
-                <label for="fuelEffectFilterIncludeRetired">Retired</label>
-              </div>
-              <div class="checkbox-group">
-                <input type="checkbox" id="fuelEffectFilterRainfall">
-                <label for="fuelEffectFilterRainfall">Rainfall</label>
-              </div>
-              <div class="checkbox-group">
-                <input type="checkbox" id="fuelEffectFilterSafetyCar">
-                <label for="fuelEffectFilterSafetyCar">Safety Car</label>
-              </div>
-              <div class="checkbox-group">
-                <input type="checkbox" id="fuelEffectFilterPitLaps">
-                <label for="fuelEffectFilterPitLaps">Pit Laps</label>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Pit Loss Panel -->
+<!-- Pit Loss Panel -->
     <div id="pit-loss-panel" class="content-panel">
       <div class="pit-loss-header">
         <div class="pit-loss-inner">
@@ -4105,9 +4055,9 @@
       appState.filters.endLaps = 0;
       appState.filters.minStintLap = 0;
       appState.filters.minDist = 0;
-      appState.filters.rainfall = false;
-      appState.filters.safetyCar = false;
-      appState.filters.pitLaps = false;
+      appState.filters.rainfall = true;
+      appState.filters.safetyCar = true;
+      appState.filters.pitLaps = true;
       appState.filters.includeLapped = true;
       appState.filters.includeRetired = true;
       appState.tyreDeg.filterMinRows = 0;
