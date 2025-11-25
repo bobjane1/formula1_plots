@@ -2962,6 +2962,8 @@
     let replayTimeline = []; // Chronological list of lap/sector events for timing replay
     let previousFilteredDataLength = 0; // Tracks filtered lap count for replay updates
     const timingInProgressLaps = new Map(); // Map<driver, {lapNum, s1, s2, startTime, tyre, position}>
+    let timingFeedData = [];
+    let timingFeedLoaded = false;
     let rawDataReady = false;
     let spoilerDecisionResolved = false;
     let sessionsInitialized = false;
@@ -5395,6 +5397,8 @@
         currentSessionDataUnfiltered = null;
         resetReplayTimelineState();
         appState.timingSeenDrivers.clear();
+        timingFeedData = [];
+        timingFeedLoaded = false;
         return;
       }
 
@@ -5409,6 +5413,9 @@
       });
 
       buildReplayTimeline(currentSessionDataUnfiltered);
+      timingFeedData = [];
+      timingFeedLoaded = false;
+      loadTimingFeedForSession(selectedSeason, round, selectedSession).catch(err => console.warn('Timing feed load failed', err));
 
       // Apply replay time filter if active
       // But only if replay slider has been initialized (has min/max set)
@@ -5643,6 +5650,32 @@
       if (!seconds || isNaN(seconds)) return '';
       return seconds.toFixed(3);
     }
+
+
+    function loadTimingFeedForSession(year, round, sessionType) {
+      return new Promise((resolve) => {
+        const url = DataCache.getCSVUrl(`timing_data/${year}_${round}_${sessionType}.csv`);
+        Papa.parse(url, {
+          download: true,
+          header: true,
+          skipEmptyLines: true,
+          dynamicTyping: false,
+          complete: (results) => {
+            if (results.data) {
+              timingFeedData = results.data;
+              timingFeedLoaded = true;
+            }
+            resolve();
+          },
+          error: (err) => {
+            console.warn('Failed to load timing feed', err);
+            timingFeedLoaded = false;
+            resolve();
+          }
+        });
+      });
+    }
+
 
     // Calculate gaps and lapped status for timing table
     function calculateTimingGaps(rows, unfilteredData = null, replayTime = null) {

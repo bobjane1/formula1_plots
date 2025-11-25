@@ -514,6 +514,7 @@ const UIHelpers = {
 const DriverInfo = {
   // Storage for driver info: key: "year|round|session" -> Map(driver -> {fullName, color, teamName, headshotUrl})
   _driverInfoBySession: new Map(),
+  _numberMapBySession: new Map(), // key -> Map<numberString -> driver code>
   _loaded: false,
   _loading: false,
   _callbacks: [],
@@ -544,11 +545,13 @@ const DriverInfo = {
       complete: (results) => {
         if (results.data) {
           this._driverInfoBySession.clear();
+          this._numberMapBySession.clear();
 
           results.data.forEach(row => {
             const year = String(row.year || "").trim();
             const round = parseInt(row.round_no, 10);
             const driver = String(row.driver || "").trim();
+            const number = String(row.number || "").trim();
             const session = String(row.session_type || "").trim().toUpperCase();
             const colorRaw = String(row.color || "").trim();
             const colorOk = /^#?[0-9a-f]{6}$/i.test(colorRaw.replace('#',''));
@@ -564,6 +567,9 @@ const DriverInfo = {
             if (!this._driverInfoBySession.has(kBase)) {
               this._driverInfoBySession.set(kBase, new Map());
             }
+            if (!this._numberMapBySession.has(kBase)) {
+              this._numberMapBySession.set(kBase, new Map());
+            }
             const baseMap = this._driverInfoBySession.get(kBase);
             const existing = baseMap.get(driver) || {};
             baseMap.set(driver, {
@@ -572,12 +578,18 @@ const DriverInfo = {
               teamName: teamName || existing.teamName || '',
               headshotUrl: headshotUrl || existing.headshotUrl || ''
             });
+            if (number) {
+              this._numberMapBySession.get(kBase).set(number, driver);
+            }
 
             // Also store by session-specific key (year|round|session)
             if (session) {
               const kSess = `${kBase}|${session}`;
               if (!this._driverInfoBySession.has(kSess)) {
                 this._driverInfoBySession.set(kSess, new Map());
+              }
+              if (!this._numberMapBySession.has(kSess)) {
+                this._numberMapBySession.set(kSess, new Map());
               }
               const sessMap = this._driverInfoBySession.get(kSess);
               const ex2 = sessMap.get(driver) || {};
@@ -587,6 +599,9 @@ const DriverInfo = {
                 teamName: teamName || ex2.teamName || '',
                 headshotUrl: headshotUrl || ex2.headshotUrl || ''
               });
+              if (number) {
+                this._numberMapBySession.get(kSess).set(number, driver);
+              }
             }
           });
         }
@@ -689,6 +704,31 @@ const DriverInfo = {
     }
 
     return colorMap;
+  },
+
+  // Resolve driver code from car number for a session
+  getDriverCodeByNumber(number, year, round, sessionType) {
+    if (!this._loaded) {
+      console.warn("DriverInfo.getDriverCodeByNumber called before data was loaded");
+      return String(number || '');
+    }
+    const numStr = String(number || '').trim();
+    if (!numStr) return String(number || '');
+
+    const sessionUpper = String(sessionType || "").trim().toUpperCase();
+    const kSess = `${year}|${round}|${sessionUpper}`;
+    if (this._numberMapBySession.has(kSess)) {
+      const map = this._numberMapBySession.get(kSess);
+      if (map.has(numStr)) return map.get(numStr);
+    }
+
+    const kBase = `${year}|${round}`;
+    if (this._numberMapBySession.has(kBase)) {
+      const map = this._numberMapBySession.get(kBase);
+      if (map.has(numStr)) return map.get(numStr);
+    }
+
+    return numStr;
   }
 };
 
