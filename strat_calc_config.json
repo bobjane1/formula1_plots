@@ -19,5 +19,16 @@
         "Mediums": {"Pace": 95.4, "Deg": 0.22},
         "Hards": {"Pace": 95.5, "Deg": 0.11},
         "Strategies Of Interest": [["M,H", "H,M", "M,H,H", "H,M,H", "M,H,S"]]
+    },
+
+    "Lusail": {
+        "Num Laps": 57,
+        "Pit Loss": 27.0,
+        "SC Length": 5,
+        "Fuel Effect": 0.10,
+        "Softs": {"Pace": 81.70, "Deg": 0.3},
+        "Mediums": {"Pace": 81.98, "Deg": 0.04},
+        "Hards": {"Pace": 82.94, "Deg": 0.034},
+        "Strategies Of Interest": [["M,H", "H,M", "M,H,H", "H,M,H", "M,H,S"]]
     }
 }
