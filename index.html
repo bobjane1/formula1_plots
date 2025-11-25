@@ -5808,7 +5808,7 @@
       // Build HTML
       let html = '<table class="timing-table"><thead><tr>';
       html += '<th>POSITION</th>';
-      html += '<th>SEL</th>';
+      html += '<th><input type="checkbox" id="timingSelectAll"></th>';
       html += '<th style="text-align: left;">DRIVER</th>';
       html += '<th>LAP TIME</th>';
       html += '<th>GAP</th>';
@@ -5929,8 +5929,47 @@
               set.delete(driver);
             }
           });
+          // Update select-all checkbox state after individual change
+          updateTimingSelectAllCheckbox(allDrivers);
         });
       });
+
+      // Wire up select-all checkbox
+      const selectAllCheckbox = container.querySelector('#timingSelectAll');
+      if (selectAllCheckbox) {
+        selectAllCheckbox.addEventListener('change', (e) => {
+          const allDriverCodes = allDrivers.map(d => d.driver);
+          updateSelectedDrivers(set => {
+            if (e.target.checked) {
+              allDriverCodes.forEach(driver => set.add(driver));
+            } else {
+              allDriverCodes.forEach(driver => set.delete(driver));
+            }
+          });
+        });
+
+        // Set initial state
+        updateTimingSelectAllCheckbox(allDrivers);
+      }
+    }
+
+    function updateTimingSelectAllCheckbox(allDrivers) {
+      const selectAllCheckbox = document.querySelector('#timingSelectAll');
+      if (!selectAllCheckbox) return;
+
+      const allDriverCodes = allDrivers.map(d => d.driver);
+      const selectedCount = allDriverCodes.filter(driver => appState.selectedDrivers.has(driver)).length;
+
+      if (selectedCount === 0) {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = false;
+      } else if (selectedCount === allDriverCodes.length) {
+        selectAllCheckbox.checked = true;
+        selectAllCheckbox.indeterminate = false;
+      } else {
+        selectAllCheckbox.checked = false;
+        selectAllCheckbox.indeterminate = true;
+      }
     }
 
     // Set up replay listener for timing tab
