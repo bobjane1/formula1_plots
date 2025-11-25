@@ -309,6 +309,26 @@
       text-align: left;
     }
 
+    .timing-gap-header {
+      cursor: pointer;
+      user-select: none;
+      position: relative;
+      padding-right: 10px;
+    }
+
+    .timing-gap-mode-pill {
+      display: inline-block;
+      margin-left: 6px;
+      padding: 2px 6px;
+      border-radius: 10px;
+      border: 1px solid var(--border-color);
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: none;
+      color: var(--muted-color);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
     .timing-table tbody tr {
       height: 28px;
       border-bottom: 1px solid #0a0a0a;
@@ -2917,6 +2937,7 @@
       // Shared across tabs
       currentActiveTab: 'timing',
       selectedDrivers: [],
+      timingGapMode: 'leader',
 
       // Session selection
       session: {
@@ -3003,6 +3024,7 @@
       currentActiveTab: 'timing',
       selectedDrivers: new Set(), // Shared driver selection across race trace and lap time panels
       timingSeenDrivers: new Set(), // Tracks who has appeared in timing (for replay auto-select)
+      timingGapMode: 'leader', // 'leader' or 'interval'
 
       // Session selection
       session: {
@@ -6037,6 +6059,25 @@
         d.position = null;
       });
 
+      // Compute gap to car ahead (active drivers only)
+      const gapToAhead = new Map();
+      activeDrivers.forEach((d, idx) => {
+        if (idx === 0) {
+          gapToAhead.set(d.driver, 0);
+          return;
+        }
+        const prev = activeDrivers[idx - 1];
+        const prevGap = Number.isFinite(prev.gap) ? prev.gap : null;
+        const thisGap = Number.isFinite(d.gap) ? d.gap : null;
+        if (prevGap === null || thisGap === null) {
+          gapToAhead.set(d.driver, null);
+        } else {
+          gapToAhead.set(d.driver, thisGap - prevGap);
+        }
+      });
+
+      const gapMode = appState.timingGapMode === 'interval' ? 'interval' : 'leader';
+
       // Auto-select drivers who appear for the first time in replay mode only
       if (replayConfig.enabled) {
         const currentSelected = new Set(appState.selectedDrivers);
@@ -6061,7 +6102,8 @@
       html += '<th><input type="checkbox" id="timingSelectAll"></th>';
       html += '<th style="text-align: left;">DRIVER</th>';
       html += '<th>LAP TIME</th>';
-      html += '<th>GAP</th>';
+      const gapModeLabel = gapMode === 'interval' ? 'Interval' : 'Leader';
+      html += `<th id="timingGapHeader" class="timing-gap-header" title="Click to toggle gap mode">GAP<span class="timing-gap-mode-pill">${gapModeLabel}</span></th>`;
       html += '<th>S1</th>';
       html += '<th>S2</th>';
       html += '<th>S3</th>';
@@ -6109,10 +6151,13 @@
         // Gap
         html += '<td class="timing-gap">';
         if (!isRetired) {
-          if (d.lapped > 0) {
+          const gapValue = gapMode === 'interval' ? gapToAhead.get(d.driver) : d.gap;
+          if (gapMode === 'leader' && d.lapped > 0) {
             html += `${d.lapped}L`;
-          } else if (d.gap !== null && d.gap !== undefined) {
-            html += `+${d.gap.toFixed(3)}`;
+          } else if (gapValue !== null && gapValue !== undefined && Number.isFinite(gapValue)) {
+            html += `+${gapValue.toFixed(3)}`;
+          } else if (gapMode === 'interval' && d.lapped > 0) {
+            html += `${d.lapped}L`;
           }
         } else if (d.lapNum) {
           html += `${d.lapNum}L`;
@@ -6215,6 +6260,16 @@
           clearLapTimeChartHighlight();
         });
       });
+
+      // Gap header toggle (leader vs ahead)
+      const gapHeader = container.querySelector('#timingGapHeader');
+      if (gapHeader) {
+        gapHeader.addEventListener('click', () => {
+          const nextMode = appState.timingGapMode === 'interval' ? 'leader' : 'interval';
+          saveToState('timingGapMode', nextMode);
+          renderTimingTable(sessionData, year, round, sessionType, unfilteredData, replayTime);
+        });
+      }
     }
 
     function updateTimingSelectAllCheckbox(allDrivers) {
