@@ -6116,9 +6116,11 @@
           const driver = DriverInfo.getDriverCodeByNumber(num, year, round, sessionType);
           if (!driver) return;
           const pos = parseInt(r.Position ?? r.position);
+          const gap = r['Gap to Leader'] ?? r.GapToLeader ?? r.gapToLeader ?? '';
+          const interval = r['IntervalToPositionAhead'] ?? r.IntervalToPositionAhead ?? r.interval ?? '';
           const prev = feedPositions.get(driver);
           if (!prev || t > prev.time) {
-            feedPositions.set(driver, { time: t, pos: Number.isFinite(pos) ? pos : 999 });
+            feedPositions.set(driver, { time: t, pos: Number.isFinite(pos) ? pos : 999, gapStr: gap, intervalStr: interval });
           }
         });
       }
@@ -6141,55 +6143,22 @@
       });
       sortedDrivers.forEach(d => {
         const entry = feedPositions.get(d.driver);
-        if (entry) d.position = entry.pos;
+        if (entry) {
+          d.position = entry.pos;
+          d.feedGapStr = entry.gapStr;
+          d.feedIntervalStr = entry.intervalStr;
+        }
       });
 
-      // Normalize gaps so the table leader is always gap 0 (helps mid-lap lead changes)
-      const tableLeaderGap = Number.isFinite(sortedDrivers[0]?.gap) ? sortedDrivers[0].gap : 0;
-      if (tableLeaderGap !== 0) {
-        sortedDrivers.forEach(d => {
-          if (Number.isFinite(d.gap)) {
-            d.gap = d.gap - tableLeaderGap;
-          }
-        });
-      }
-
-      const activeDrivers = sortedDrivers.filter(d => {
-        const status = String(d.finishStatus || '').toLowerCase();
-        return status === '' || status === 'finished' || status === 'lapped';
-      });
       const retiredDrivers = sortedDrivers.filter(d => {
         const status = String(d.finishStatus || '').toLowerCase();
         return status === 'retired' || status === 'disqualified';
       });
-
-      const allDrivers = [...activeDrivers, ...retiredDrivers];
-
-      // Assign positions based on sorted table order (active drivers only)
-      activeDrivers.forEach((d, index) => {
-        d.position = index + 1;
-      });
-      // Retired drivers don't get a position
+      const activeDrivers = sortedDrivers.filter(d => !retiredDrivers.includes(d));
       retiredDrivers.forEach(d => {
         d.position = null;
       });
-
-      // Compute gap to car ahead (active drivers only)
-      const gapToAhead = new Map();
-      activeDrivers.forEach((d, idx) => {
-        if (idx === 0) {
-          gapToAhead.set(d.driver, 0);
-          return;
-        }
-        const prev = activeDrivers[idx - 1];
-        const prevGap = Number.isFinite(prev.gap) ? prev.gap : null;
-        const thisGap = Number.isFinite(d.gap) ? d.gap : null;
-        if (prevGap === null || thisGap === null) {
-          gapToAhead.set(d.driver, null);
-        } else {
-          gapToAhead.set(d.driver, thisGap - prevGap);
-        }
-      });
+      const allDrivers = [...activeDrivers, ...retiredDrivers];
 
       const gapMode = appState.timingGapMode === 'interval' ? 'interval' : 'leader';
 
@@ -6328,13 +6297,12 @@
         // Gap
         html += '<td class="timing-gap">';
         if (!isRetired) {
-          const gapValue = gapMode === 'interval' ? gapToAhead.get(d.driver) : d.gap;
-          if (gapMode === 'leader' && d.lapped > 0) {
-            html += `${d.lapped}L`;
-          } else if (gapValue !== null && gapValue !== undefined && Number.isFinite(gapValue)) {
-            html += `+${gapValue.toFixed(3)}`;
-          } else if (gapMode === 'interval' && d.lapped > 0) {
-            html += `${d.lapped}L`;
+          const feed = feedPositions.get(d.driver);
+          const rawGap = gapMode === 'interval' ? feed?.intervalStr : feed?.gapStr;
+          if (gapMode === 'leader' && d.position === 1) {
+            html += '+0.000';
+          } else if (rawGap) {
+            html += rawGap;
           }
         } else if (d.lapNum) {
           html += `${d.lapNum}L`;
