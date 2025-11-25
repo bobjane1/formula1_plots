@@ -8620,10 +8620,6 @@ setupTyreDegFilterModal();
                 borderWidth: 2
               }
             },
-            blur: {
-              lineStyle: { opacity: 0.25 },
-              itemStyle: { opacity: 0.25 }
-            },
             endLabel: {
               show: isLastStint,
               formatter: driver,
@@ -8828,7 +8824,7 @@ setupTyreDegFilterModal();
           const isDriver = driverSeriesIndices.includes(idx);
           return {
             lineStyle: { width: isDriver ? 3 : 2, color: s.lineStyle.color, opacity: isDriver ? 1 : 0.15 },
-            itemStyle: { ...s.itemStyle, opacity: isDriver ? 1 : 0.05 },
+            itemStyle: { ...s.itemStyle, opacity: isDriver ? 1 : 0.15 },
             endLabel: s.endLabel ? { ...s.endLabel, opacity: isDriver ? 1 : 0.15 } : undefined
           };
         });
@@ -8872,13 +8868,15 @@ setupTyreDegFilterModal();
           // Emphasized series - make it stand out
           return {
             lineStyle: { opacity: 1, width: 3 },
-            itemStyle: { opacity: 1 }
+            itemStyle: { opacity: 1 },
+            endLabel: series.endLabel ? { ...series.endLabel, opacity: 1 } : undefined
           };
         } else {
           // Blurred series
           return {
-            lineStyle: { opacity: 0.25 },
-            itemStyle: { opacity: 0.25 }
+            lineStyle: { opacity: 0.15 },
+            itemStyle: { opacity: 0.15 },
+            endLabel: series.endLabel ? { ...series.endLabel, opacity: 0.15 } : undefined
           };
         }
       });
@@ -8894,9 +8892,10 @@ setupTyreDegFilterModal();
       const option = lapTimeChartInstance.getOption();
 
       // Restore all series to normal state (full opacity, normal width)
-      const updatedSeries = option.series.map(() => ({
+      const updatedSeries = option.series.map((series) => ({
         lineStyle: { opacity: 1, width: 2 },
-        itemStyle: { opacity: 1 }
+        itemStyle: { opacity: 1 },
+        endLabel: series.endLabel ? { ...series.endLabel, opacity: 1 } : undefined
       }));
 
       lapTimeChartInstance.setOption({
