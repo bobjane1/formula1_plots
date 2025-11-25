@@ -2803,6 +2803,7 @@
       // Shared across tabs
       currentActiveTab: 'timing',
       selectedDrivers: new Set(), // Shared driver selection across race trace and lap time panels
+      timingSeenDrivers: new Set(), // Tracks who has appeared in timing (for replay auto-select)
 
       // Session selection
       session: {
@@ -5134,6 +5135,7 @@
         currentSessionData = null;
         currentSessionDataUnfiltered = null;
         resetReplayTimelineState();
+        appState.timingSeenDrivers.clear();
         return;
       }
 
@@ -5163,6 +5165,7 @@
       // Clear selected drivers when a new session is selected (unless restoring from permalink)
       if (!window.permalinkSession || !window.permalinkSession.isRestoring) {
         appState.selectedDrivers.clear();
+        appState.timingSeenDrivers.clear();
         // Select top 5 drivers for the new session (unconditionally, regardless of active tab)
         selectTopDriversFromSessionData(currentSessionDataUnfiltered);
       }
@@ -5830,6 +5833,24 @@
       });
 
       const allDrivers = [...activeDrivers, ...retiredDrivers];
+
+      // Auto-select drivers who appear for the first time in replay mode only
+      if (replayConfig.enabled) {
+        const currentSelected = new Set(appState.selectedDrivers);
+        let selectionChanged = false;
+        allDrivers.forEach(d => {
+          if (!appState.timingSeenDrivers.has(d.driver)) {
+            appState.timingSeenDrivers.add(d.driver);
+            if (!currentSelected.has(d.driver)) {
+              currentSelected.add(d.driver);
+              selectionChanged = true;
+            }
+          }
+        });
+        if (selectionChanged) {
+          commitSelectedDrivers(currentSelected, { silent: true });
+        }
+      }
 
       // Build HTML
       let html = '<table class="timing-table"><thead><tr>';
@@ -8061,7 +8082,6 @@ function updateSelectedDrivers(mutator, options = {}) {
       if (!sessionData || sessionData.length === 0) {
         lapTimeDriverOrder = [];
         lapTimeCurrentGroups = new Map();
-        appState.selectedDrivers.clear();
         buildLapTimeDriversList([]);
         renderLapTimeChart();
         renderLapTimeSummaryTable();
@@ -8073,7 +8093,6 @@ function updateSelectedDrivers(mutator, options = {}) {
 
       if (!rows || rows.length === 0) {
         lapTimeCurrentGroups = new Map();
-        appState.selectedDrivers.clear();
         buildLapTimeDriversList([]);
         renderLapTimeChart();
         renderLapTimeSummaryTable();
