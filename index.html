@@ -8820,7 +8820,7 @@ setupTyreDegFilterModal();
           if (currentHoveredDriver === hoveredDriver) return;
           currentHoveredDriver = hoveredDriver;
 
-          const driverSeriesIndices = seriesIndexByDriver.get(hoveredDriver) || [];
+          const driverSeriesIndices = lapTimeSeriesIndexByDriver.get(hoveredDriver) || [];
 
           const updatedSeries = series.map((s, idx) => {
             if (idx >= driverSeriesCount) return {};
