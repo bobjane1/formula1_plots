@@ -880,11 +880,35 @@
     }
 
     /* Tyre-deg controls and modal */
+    .tyre-deg-header {
+      display: flex;
+      align-items: stretch;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .tyre-deg-left,
+    .tyre-deg-middle {
+      margin: 0;
+      height: 100%;
+    }
+
+    .tyre-deg-left {
+      flex: 1 1 0;
+      min-width: 340px;
+    }
+
+    .tyre-deg-middle {
+      flex: 1 1 0;
+      min-width: 260px;
+    }
+
     .tyre-deg-controls {
       display: flex;
       justify-content: flex-end;
-      margin-bottom: 8px;
+      align-items: flex-start;
       gap: 8px;
+      flex-shrink: 0;
     }
 
     .tyre-filter-overlay {
@@ -2431,33 +2455,34 @@
 
     <!-- Tyre Degradation Panel -->
     <div id="tyre-deg-panel" class="content-panel">
-      <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+      <div class="tyre-deg-header">
+        <div class="filter-panel tyre-deg-left">
+          <div class="filters-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
+            <div class="filter-item">
+              <div class="filter-label">Min Rows Per Stint</div>
+              <input type="number" id="tyreDegFilterMinRows" value="5" min="1">
+            </div>
+            <div class="filter-item">
+              <div class="filter-label">Min Correlation</div>
+              <input type="number" id="tyreDegFilterMinCorr" value="-0.5" min="-1" max="1" step="0.1">
+            </div>
+          </div>
+        </div>
+        <div class="filter-panel tyre-deg-middle">
+          <div class="filters-grid" style="grid-template-columns: 1fr;">
+            <div class="filter-item vertical">
+              <div class="filter-label">Fuel Effect (s/lap)</div>
+              <div class="slider-container">
+                <input type="range" id="tyreDegFuelEffectSlider" min="0" max="0.3" step="0.001" value="0.025">
+                <div class="slider-value" id="tyreDegFuelEffectValue">0.025</div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="tyre-deg-controls">
           <button id="tyreDegFilterBtn" class="filter-button" data-tooltip="Adjust tyre deg filters" aria-label="Adjust tyre deg filters">
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-6.5 7.11v5.64L9.5 19v-7.89z"/></svg>
           </button>
-        </div>
-        <div style="flex: 1; display: flex; gap: 8px; align-items: center;">
-          <div class="filter-panel" style="flex: 0 0 50%; margin: 0;">
-            <div class="filters-title">Analysis Parameters</div>
-            <div class="filters-grid" style="grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px;">
-              <div class="filter-item vertical">
-                <div class="filter-label">Fuel Effect (s/lap)</div>
-                <div class="slider-container">
-                  <input type="range" id="tyreDegFuelEffectSlider" min="0" max="0.3" step="0.001" value="0.025">
-                  <div class="slider-value" id="tyreDegFuelEffectValue">0.025</div>
-                </div>
-              </div>
-              <div class="filter-item">
-                <div class="filter-label">Min Rows Per Stint</div>
-                <input type="number" id="tyreDegFilterMinRows" value="5" min="1">
-              </div>
-              <div class="filter-item">
-                <div class="filter-label">Min Correlation</div>
-                <input type="number" id="tyreDegFilterMinCorr" value="-0.5" min="-1" max="1" step="0.1">
-              </div>
-            </div>
-          </div>
         </div>
       </div>
       <div id="tyreDegTyreChoicesDisplay" class="tyre-choices-display" style="display: none; margin-bottom: 12px;">
