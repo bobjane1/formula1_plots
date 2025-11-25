@@ -271,6 +271,7 @@
       flex-direction: column;
       gap: 4px;
       min-width: 400px;
+      width: 100%;
     }
 
     .timing-chart-row {
@@ -762,18 +763,35 @@
 
     .lap-time-chart-wrapper {
       flex: 1;
+      position: relative;
+      padding-top: 40px; /* space for overlayed controls */
+      width: calc(100% + 32px); /* extend past panel padding (16px) + page padding (16px) */
+      margin-right: -32px;
     }
 
     .lap-time-controls {
+      position: absolute;
+      inset: 0 0 auto 0;
+      padding: 8px;
       display: flex;
-      gap: 8px;
       align-items: center;
       justify-content: space-between;
+      gap: 8px;
+      pointer-events: none; /* allow chart interaction except over controls */
+      z-index: 2;
     }
 
     .lap-time-controls-left {
       display: flex;
       gap: 8px;
+      pointer-events: auto;
+    }
+
+    .lap-time-controls-right {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      pointer-events: auto;
     }
 
     .lap-time-analysis {
@@ -1059,6 +1077,7 @@
     }
 
     #lapTimeChart {
+      display: block;
       width: 100%;
       height: 610px;
     }
@@ -2299,22 +2318,22 @@
           <div id="timingTableContainer"></div>
         </div>
         <div class="timing-right">
-          <div class="lap-time-controls">
-            <div class="lap-time-controls-left">
-              <button id="fuelAdjustToggle" class="toggle-button active">Fuel Adjusted</button>
-              <button id="tyreLifeAdjustToggle" class="toggle-button active">Tyre Life Adjusted</button>
-            </div>
-            <div style="display: flex; gap: 8px; align-items: center;">
-              <button id="lapTimeFilterBtn" class="filter-button" data-tooltip="Adjust lap filters" aria-label="Adjust lap filters">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-6.5 7.11v5.64L9.5 19v-7.89z"/></svg>
-              </button>
-              <button id="copyLapTimeDataBtn" class="copy-data-button" data-tooltip="Copy lap times" aria-label="Copy data">
-                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16h14c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"/></svg>
-              </button>
-            </div>
-          </div>
           <div class="timing-chart-row">
             <div class="lap-time-chart-wrapper">
+              <div class="lap-time-controls">
+                <div class="lap-time-controls-left">
+                  <button id="fuelAdjustToggle" class="toggle-button active">Fuel Adjusted</button>
+                  <button id="tyreLifeAdjustToggle" class="toggle-button active">Tyre Life Adjusted</button>
+                </div>
+                <div class="lap-time-controls-right">
+                  <button id="lapTimeFilterBtn" class="filter-button" data-tooltip="Adjust lap filters" aria-label="Adjust lap filters">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h18l-6.5 7.11v5.64L9.5 19v-7.89z"/></svg>
+                  </button>
+                  <button id="copyLapTimeDataBtn" class="copy-data-button" data-tooltip="Copy lap times" aria-label="Copy data">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v16h14c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 18H8V7h11v16z"/></svg>
+                  </button>
+                </div>
+              </div>
               <div id="lapTimeChart"></div>
             </div>
           </div>
@@ -4130,9 +4149,9 @@
       appState.filters.endLaps = 0;
       appState.filters.minStintLap = 0;
       appState.filters.minDist = 0;
-      appState.filters.rainfall = false;
-      appState.filters.safetyCar = false;
-      appState.filters.pitLaps = false;
+      appState.filters.rainfall = true;
+      appState.filters.safetyCar = true;
+      appState.filters.pitLaps = true;
       appState.filters.includeLapped = true;
       appState.filters.includeRetired = true;
       appState.tyreDeg.filterMinRows = 0;
@@ -7488,7 +7507,7 @@ function updateSelectedDrivers(mutator, options = {}) {
         backgroundColor: 'transparent',
         grid: {
           left: 60,
-          right: 120,
+          right: 20,
           top: 40,
           bottom: 60,
           containLabel: false
@@ -7686,19 +7705,19 @@ function updateSelectedDrivers(mutator, options = {}) {
         if (!config) return;
 
         let paceModelChanged = false;
-        if (config["Hard Deg"] !== undefined && appState.paceModel.degHard === defaultAppState.paceModel.degHard) {
-          saveToState('paceModel.degHard', config["Hard Deg"]);
+        if (config["Hards"]["Deg"] !== undefined) {
+          saveToState('paceModel.degHard', config["Hards"]["Deg"]);
           paceModelChanged = true;
         }
-        if (config["Medium Deg"] !== undefined && appState.paceModel.degMedium === defaultAppState.paceModel.degMedium) {
-          saveToState('paceModel.degMedium', config["Medium Deg"]);
+        if (config["Mediums"]["Deg"] !== undefined) {
+          saveToState('paceModel.degMedium', config["Mediums"]["Deg"]);
           paceModelChanged = true;
         }
-        if (config["Soft Deg"] !== undefined && appState.paceModel.degSoft === defaultAppState.paceModel.degSoft) {
-          saveToState('paceModel.degSoft', config["Soft Deg"]);
+        if (config["Softs"]["Deg"] !== undefined) {
+          saveToState('paceModel.degSoft', config["Softs"]["Deg"]);
           paceModelChanged = true;
         }
-        if (config["Fuel Effect"] !== undefined && appState.paceModel.fuelEffect === defaultAppState.paceModel.fuelEffect) {
+        if (config["Fuel Effect"] !== undefined) {
           saveToState('paceModel.fuelEffect', config["Fuel Effect"]);
           paceModelChanged = true;
         }
