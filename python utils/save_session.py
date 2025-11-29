@@ -1,4 +1,4 @@
-import fastf1, fastf1.plotting
+import fastf1, fastf1.plotting, fastf1.api
 import my_f1_utils # set the cache
 from pathlib import Path
 import pandas as pd
@@ -134,10 +134,8 @@ def save_timing_data(races):
             session.load()
             timing_data = fastf1.api.timing_data(session.api_path)[1]
             timing_data = timing_data[(timing_data["Driver"] == "4") & (timing_data["Position"] == 2)]
-            print(timing_data.iloc[0]["Time"])
-            print(timing_data.iloc[0]["Time"].total_seconds())
-            # timing_data["Time"] = timing_data["Time"].dt.total_seconds()
-            # timing_data.to_csv(fn, index=False) 
+            timing_data["Time"] = timing_data["Time"].dt.total_seconds()
+            timing_data.to_csv(fn, index=False) 
             print(f"Saved {fn}")
         except Exception as e:
             print(f"Skipped {fn}: {e}")
@@ -145,7 +143,7 @@ def save_timing_data(races):
 
 
 my_f1_utils.setup_cache(offline=False)
-races = [(2025,22,"R")]
+races = [(2025,23,"S")]
 
 # all races to reconstruct everything
 # races = []
