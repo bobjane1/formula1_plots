@@ -2817,6 +2817,10 @@
                     <span class="calculator-field-label">Fuel Effect (s/lap)</span>
                     <input type="number" id="calculatorFuelEffect" class="calculator-field-input" step="0.001" />
                   </div>
+                  <div class="calculator-race-param-row">
+                    <span class="calculator-field-label">Lap limit (laps)</span>
+                    <input type="number" id="calculatorLapLimit" class="calculator-field-input" min="1" />
+                  </div>
                 </div>
               </div>
             </div>
@@ -3047,6 +3051,7 @@
         paceS: null,
         paceM: null,
         paceH: null,
+        tyreMaxAge: 100,
         scProbRanges: [
           {from:'1', to: '1', prob: '26.1'},
           {from:'2', to: '2', prob: '4.9'},
@@ -3134,6 +3139,7 @@
         paceS: null,
         paceM: null,
         paceH: null,
+        tyreMaxAge: 100,
         scProbRanges: [] // Array of {fromLap, toLap, probability}
       }
     };
@@ -7024,6 +7030,7 @@ function updateSelectedDrivers(mutator, options = {}) {
       const calculatorPitLoss = document.getElementById('calculatorPitLoss');
       const calculatorScLength = document.getElementById('calculatorScLength');
       const calculatorNumLaps = document.getElementById('calculatorNumLaps');
+      const calculatorLapLimit = document.getElementById('calculatorLapLimit');
       const calculatorPaceS = document.getElementById('calculatorPaceS');
       const calculatorPaceM = document.getElementById('calculatorPaceM');
       const calculatorPaceH = document.getElementById('calculatorPaceH');
@@ -7044,6 +7051,11 @@ function updateSelectedDrivers(mutator, options = {}) {
       if (calculatorScLength && !skipSet.has('calculatorScLength')) {
         const value = appState.calculator.scLength;
         calculatorScLength.value = value === null || value === undefined ? '' : value;
+      }
+
+      if (calculatorLapLimit && !skipSet.has('calculatorLapLimit')) {
+        const value = appState.calculator.tyreMaxAge;
+        calculatorLapLimit.value = value === null || value === undefined ? '' : value;
       }
 
       if (calculatorPaceS && !skipSet.has('calculatorPaceS')) {
@@ -7966,6 +7978,7 @@ function updateSelectedDrivers(mutator, options = {}) {
         calculatorDefaultsChanged = setDefaultIfNull('paceS', 75.0) || calculatorDefaultsChanged;
         calculatorDefaultsChanged = setDefaultIfNull('paceM', 75.5) || calculatorDefaultsChanged;
         calculatorDefaultsChanged = setDefaultIfNull('paceH', 76.5) || calculatorDefaultsChanged;
+        calculatorDefaultsChanged = setDefaultIfNull('tyreMaxAge', 100) || calculatorDefaultsChanged;
 
         if (calculatorDefaultsChanged) {
           renderCalculatorInputsFromState();
@@ -8004,6 +8017,10 @@ function updateSelectedDrivers(mutator, options = {}) {
         }
         if ((appState.calculator.scLength === null || appState.calculator.scLength === undefined) && config['SC Length'] !== undefined) {
           saveToState('calculator.scLength', config['SC Length']);
+          calculatorInputsChanged = true;
+        }
+        if (appState.calculator.tyreMaxAge === null || appState.calculator.tyreMaxAge === undefined) {
+          saveToState('calculator.tyreMaxAge', 100);
           calculatorInputsChanged = true;
         }
 
@@ -11355,7 +11372,6 @@ setupTyreDegFilterModal();
     // ============================================================================
 
     const INF = 1e18;
-    const TYRE_MAX_AGE = 25; // hard-coded lap limit for all compounds
     let calculatorStrategyChart = null;
     let calculatorLapTimeChart = null;
     let trackTempChart = null;
@@ -11484,11 +11500,12 @@ setupTyreDegFilterModal();
     }
 
     // Main DP Algorithm
-    function calcComputePolicy(numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss, rule) {
+    function calcComputePolicy(numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss, rule, tyreMaxAge) {
       const scProb = {};
       for (let lap = 1; lap <= numLaps; lap++) {
         scProb[lap] = calcGetScProb(lap, scProbRanges);
       }
+      const maxAge = Number.isFinite(tyreMaxAge) ? tyreMaxAge : numLaps;
 
       const dpExp = new Map();
       const policy = new Map();
@@ -11500,7 +11517,7 @@ setupTyreDegFilterModal();
           const metaCompounds = entry.compounds;
           for (const compIdx of metaCompounds) {
             for (let scStatus = 0; scStatus <= 1; scStatus++) {
-              const ageCap = Math.min(lap - 1, TYRE_MAX_AGE);
+              const ageCap = Math.min(lap - 1, maxAge);
               for (let age = 0; age <= ageCap; age++) {
                 const key = calcStateKey(lap, compIdx, age, scStatus, meta);
 
@@ -11515,7 +11532,7 @@ setupTyreDegFilterModal();
 
                 if (scStatus === 1) {
                   const options = [];
-                  if (age < TYRE_MAX_AGE) {
+                  if (age < maxAge) {
                     options.push({
                       compIdxOpt: compIdx,
                       ageOpt: age,
@@ -11557,7 +11574,7 @@ setupTyreDegFilterModal();
                   }
                 } else {
                   const options = [];
-                  if (age < TYRE_MAX_AGE) {
+                  if (age < maxAge) {
                     options.push({
                       compIdxOpt: compIdx,
                       ageOpt: age,
@@ -11582,7 +11599,7 @@ setupTyreDegFilterModal();
 
                   for (const opt of options) {
                     const nextAge = opt.ageOpt + 1;
-                    if (nextAge > TYRE_MAX_AGE) continue;
+                    if (nextAge > maxAge) continue;
                     const lt = calcLapTime(
                       opt.compIdxOpt,
                       opt.ageOpt,
@@ -11636,7 +11653,7 @@ setupTyreDegFilterModal();
       return { dpExp, policy };
     }
 
-    function calcExtractNoScStrategy(rule, startCompIdx, numLaps, policy) {
+    function calcExtractNoScStrategy(rule, startCompIdx, numLaps, policy, tyreMaxAge) {
       let meta = rule.initMeta(startCompIdx);
       if (meta == null) return [];
 
@@ -11644,13 +11661,14 @@ setupTyreDegFilterModal();
       let compIdx = startCompIdx;
       let age = 0;
       let currentStintStart = 1;
+      const maxAge = Number.isFinite(tyreMaxAge) ? tyreMaxAge : numLaps;
 
       for (let lap = 1; lap <= numLaps; lap++) {
         const key = calcStateKey(lap, compIdx, age, 0, meta);
         const action = policy.get(key);
-        if (!action) 
+        if (!action)
           throw new Error(`Infeasible state at lap ${lap} with compound ${compIdx} age ${age}`);
-        if (action[0] === "stay" && age >= TYRE_MAX_AGE) 
+        if (action[0] === "stay" && age >= maxAge)
           throw new Error(`Policy exceeded max tyre age at lap ${lap} (age ${age})`);
 
         if (action[0] === "pit") {
@@ -11685,7 +11703,7 @@ setupTyreDegFilterModal();
       return total;
     }
 
-    function calcSummarizeResults(numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss, rule) {
+    function calcSummarizeResults(numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss, rule, tyreMaxAge) {
       const { dpExp, policy } = calcComputePolicy(
         numLaps,
         compounds,
@@ -11693,13 +11711,14 @@ setupTyreDegFilterModal();
         scProbRanges,
         scLength,
         pitLoss,
-        rule
+        rule,
+        tyreMaxAge
       );
       const results = {};
       for (let startIdx = 0; startIdx < compounds.length; startIdx++) {
         const meta0 = rule.initMeta(startIdx);
         if (meta0 == null) continue;
-        const stints = calcExtractNoScStrategy(rule, startIdx, numLaps, policy);
+        const stints = calcExtractNoScStrategy(rule, startIdx, numLaps, policy, tyreMaxAge);
         const key0 = calcStateKey(1, startIdx, 0, 0, meta0);
         const expectedTime = dpExp.get(key0);
         results[compounds[startIdx].type] = {
@@ -11711,7 +11730,7 @@ setupTyreDegFilterModal();
       return { results };
     }
 
-    function calcComputeFreePatterns(numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss) {
+    function calcComputeFreePatterns(numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss, tyreMaxAge) {
       const compoundIndices = compounds.map((_, i) => i);
       const rule = new TwoCompoundTyreRule(compoundIndices);
       const { dpExp, policy } = calcComputePolicy(
@@ -11721,7 +11740,8 @@ setupTyreDegFilterModal();
         scProbRanges,
         scLength,
         pitLoss,
-        rule
+        rule,
+        tyreMaxAge
       );
 
       const seen = new Set();
@@ -11731,7 +11751,7 @@ setupTyreDegFilterModal();
         const meta0 = rule.initMeta(startIdx);
         if (meta0 == null) continue;
 
-        const stints = calcExtractNoScStrategy(rule, startIdx, numLaps, policy);
+        const stints = calcExtractNoScStrategy(rule, startIdx, numLaps, policy, tyreMaxAge);
         if (!stints || !stints.length) continue;
 
         const seq = [];
@@ -11978,6 +11998,7 @@ setupTyreDegFilterModal();
         const fuelEffect = appState.paceModel.fuelEffect;
         const scLength = appState.calculator.scLength;
         const pitLoss = appState.calculator.pitLoss;
+        const tyreMaxAge = appState.calculator.tyreMaxAge;
 
         const compounds = [
           { type: "S", pace: appState.calculator.paceS, degradation: appState.paceModel.degSoft },
@@ -11989,6 +12010,7 @@ setupTyreDegFilterModal();
         if (!Number.isFinite(fuelEffect)) throw new Error("Fuel effect must be a number.");
         if (!Number.isFinite(scLength) || scLength <= 0) throw new Error("SC length must be a positive integer.");
         if (!Number.isFinite(pitLoss) || pitLoss < 0) throw new Error("Pit loss must be a non-negative number.");
+        if (!Number.isFinite(tyreMaxAge) || tyreMaxAge <= 0) throw new Error("Lap limit must be a positive number.");
         for (const c of compounds) {
           if (!Number.isFinite(c.pace) || !Number.isFinite(c.degradation)) {
             throw new Error("All compound pace and degradation values must be numbers.");
@@ -12004,7 +12026,7 @@ setupTyreDegFilterModal();
         // Baseline free rule (not plotted)
         const freeRule = new TwoCompoundTyreRule(compoundIndices);
         const freeSummary = calcSummarizeResults(
-          numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss, freeRule
+          numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss, freeRule, tyreMaxAge
         );
 
         const freeEntries = Object.entries(freeSummary.results)
@@ -12062,7 +12084,7 @@ setupTyreDegFilterModal();
 
           const rule = new PatternUnlessSCTyreRule(patternIndices, compoundIndices);
           const summary = calcSummarizeResults(
-            numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss, rule
+            numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss, rule, tyreMaxAge
           );
           const entries = Object.entries(summary.results);
           if (entries.length === 0) continue;
@@ -12112,13 +12134,14 @@ setupTyreDegFilterModal();
 
         if (!Number.isFinite(numLaps) || !Number.isFinite(fuelEffect) ||
             !Number.isFinite(scLength) || !Number.isFinite(pitLoss) ||
+            !Number.isFinite(tyreMaxAge) ||
             compounds.some(c => !Number.isFinite(c.pace) || !Number.isFinite(c.degradation))) {
           return;
         }
 
         const scProbRanges = getCalculatorScProbRangesFromState();
         const patterns = calcComputeFreePatterns(
-          numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss
+          numLaps, compounds, fuelEffect, scProbRanges, scLength, pitLoss, tyreMaxAge
         ).slice(0, 3);
 
         const strategyInputs = document.querySelectorAll('.calculatorStrategyInput');
@@ -12390,6 +12413,17 @@ setupTyreDegFilterModal();
         saveToState('calculator.scLength', value);
       }
       renderCalculatorInputsFromState({ skip: ['calculatorScLength'] });
+    });
+    document.getElementById('calculatorLapLimit').addEventListener('input', function() {
+      const text = this.value.trim();
+      if (text === '') {
+        saveToState('calculator.tyreMaxAge', null);
+      } else {
+        const value = parseInt(text, 10);
+        if (!Number.isFinite(value) || value <= 0) return;
+        saveToState('calculator.tyreMaxAge', value);
+      }
+      renderCalculatorInputsFromState({ skip: ['calculatorLapLimit'] });
     });
     document.getElementById('calculatorFuelEffect').addEventListener('input', function() {
       const value = parseFloat(this.value);
