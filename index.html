@@ -2060,7 +2060,7 @@
     .track-temp-panel {
       display: flex;
       flex-direction: column;
-      gap: 12px;ma
+      gap: 12px;
       padding: 16px;
       background: rgba(255, 255, 255, 0.02);
       border-radius: var(--radius-lg);
@@ -11355,6 +11355,7 @@ setupTyreDegFilterModal();
     // ============================================================================
 
     const INF = 1e18;
+    const TYRE_MAX_AGE = 25; // hard-coded lap limit for all compounds
     let calculatorStrategyChart = null;
     let calculatorLapTimeChart = null;
     let trackTempChart = null;
@@ -11499,7 +11500,8 @@ setupTyreDegFilterModal();
           const metaCompounds = entry.compounds;
           for (const compIdx of metaCompounds) {
             for (let scStatus = 0; scStatus <= 1; scStatus++) {
-              for (let age = 0; age < lap; age++) {
+              const ageCap = Math.min(lap - 1, TYRE_MAX_AGE);
+              for (let age = 0; age <= ageCap; age++) {
                 const key = calcStateKey(lap, compIdx, age, scStatus, meta);
 
                 if (lap === numLaps + 1) {
@@ -11512,15 +11514,16 @@ setupTyreDegFilterModal();
                 let bestAction = null;
 
                 if (scStatus === 1) {
-                  const options = [
-                    {
+                  const options = [];
+                  if (age < TYRE_MAX_AGE) {
+                    options.push({
                       compIdxOpt: compIdx,
                       ageOpt: age,
                       action: ["stay"],
                       metaOpt: meta,
                       pitLossOpt: 0
-                    }
-                  ];
+                    });
+                  }
 
                   const allowed = rule.newCompoundsAllowed(meta) || [];
                   for (const newC of allowed) {
@@ -11553,15 +11556,16 @@ setupTyreDegFilterModal();
                     }
                   }
                 } else {
-                  const options = [
-                    {
+                  const options = [];
+                  if (age < TYRE_MAX_AGE) {
+                    options.push({
                       compIdxOpt: compIdx,
                       ageOpt: age,
                       action: ["stay"],
                       metaOpt: meta,
                       pitLossOpt: 0
-                    }
-                  ];
+                    });
+                  }
 
                   const allowed = rule.newCompoundsAllowed(meta) || [];
                   for (const newC of allowed) {
@@ -11577,6 +11581,8 @@ setupTyreDegFilterModal();
                   }
 
                   for (const opt of options) {
+                    const nextAge = opt.ageOpt + 1;
+                    if (nextAge > TYRE_MAX_AGE) continue;
                     const lt = calcLapTime(
                       opt.compIdxOpt,
                       opt.ageOpt,
@@ -11591,14 +11597,14 @@ setupTyreDegFilterModal();
                     const scKey = calcStateKey(
                       nextLap,
                       opt.compIdxOpt,
-                      opt.ageOpt + 1,
+                      nextAge,
                       1,
                       metaAfterSc
                     );
                     const greenKey = calcStateKey(
                       nextLap,
                       opt.compIdxOpt,
-                      opt.ageOpt + 1,
+                      nextAge,
                       0,
                       opt.metaOpt
                     );
@@ -11642,7 +11648,10 @@ setupTyreDegFilterModal();
       for (let lap = 1; lap <= numLaps; lap++) {
         const key = calcStateKey(lap, compIdx, age, 0, meta);
         const action = policy.get(key);
-        if (!action) break;
+        if (!action) 
+          throw new Error(`Infeasible state at lap ${lap} with compound ${compIdx} age ${age}`);
+        if (action[0] === "stay" && age >= TYRE_MAX_AGE) 
+          throw new Error(`Policy exceeded max tyre age at lap ${lap} (age ${age})`);
 
         if (action[0] === "pit") {
           const newComp = action[1];
