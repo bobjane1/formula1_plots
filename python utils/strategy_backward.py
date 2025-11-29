@@ -218,7 +218,7 @@ def summarize_results(num_laps, compounds, fuel_effect, sc_prob_ranges, sc_lengt
 def main():
     num_laps = 57
     compounds = [
-        {"type": "H", "pace": 82.9, "degradation": 0.03},
+        {"type": "H", "pace": 82.7, "degradation": 0.03},
         {"type": "M", "pace": 82.5, "degradation": 0.03},
         {"type": "S", "pace": 83.0, "degradation": 0.15},
     ]
