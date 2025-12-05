@@ -264,10 +264,25 @@ def animate_q3_fastest_laps(year, grand_prix, drivers):
     driver_laps = []
     colors = []
     title =  f"{session.event['EventName']} {year} – Q3 Fastest Laps"
-    for driver in drivers:
+    for driver in drivers:    
         driver_laps.append(laps.pick_drivers(driver).pick_fastest())
         color = fastf1.plotting.get_driver_style(identifier=driver, style=['color'], session=session)["color"]
+        if driver == "PIA":
+            color = "black"
         colors.append(color)
     make_plot(driver_laps, drivers, colors, title)
 
-animate_q3_fastest_laps(2024, 22, ["RUS","NOR"])
+animate_q3_fastest_laps(2025, 23, ["PIA", "NOR"])
+
+# year, grand_prix = 2025, 23
+# session = fastf1.get_session(year, grand_prix, "Q")
+# session.load()
+# laps = session.laps.split_qualifying_sessions()[2]
+# lap = laps[(laps["Driver"] == "NOR") & (laps["LapNumber"] == 17)].iloc[0]
+# car_data = lap.get_car_data()
+# for row in car_data.itertuples():
+#     print(f"{row.Time.total_seconds()}|{row.Speed}|{row.Throttle}|{row.Brake}")
+
+# pos_data = lap.get_pos_data()
+# for row in pos_data.itertuples():
+#     print(f"{row.Time.total_seconds()}|{row.X}|{row.Y}")

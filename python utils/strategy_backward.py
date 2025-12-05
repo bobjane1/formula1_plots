@@ -220,7 +220,7 @@ def main():
     compounds = [
         {"type": "H", "pace": 82.7, "degradation": 0.03},
         {"type": "M", "pace": 82.5, "degradation": 0.03},
-        {"type": "S", "pace": 83.0, "degradation": 0.15},
+        {"type": "S", "pace": 82.3, "degradation": 0.1},
     ]
     fuel_effect = 0.08
     max_age = 25
@@ -250,7 +250,7 @@ def main():
     #     print(f"  No-SC race time: {info['no_sc_time']}")
     #     print()    
 
-    for pattern in [["M", "M", "H"]]:
+    for pattern in [["M", "M", "S"], ["S", "M", "M"]]:
         pattern_indices = [type_to_idx[t] for t in pattern]
         rule = PatternUnlessSCTyreRule(pattern_indices, compound_indices=list(range(len(compounds))))
         results = summarize_results(num_laps, compounds, fuel_effect, sc_prob_ranges, sc_length, pit_loss, rule, max_age)
