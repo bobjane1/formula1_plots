@@ -3915,3 +3915,23 @@ year,round_no,session_type,driver,number,color,TeamName,FullName,HeadshotUrl
 2025,23,R,HAD,6,#fcd700,Racing Bulls,Isack Hadjar,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/I/ISAHAD01_Isack_Hadjar/isahad01.png.transform/1col/image.png
 2025,23,R,BEA,87,#b6babd,Haas F1 Team,Oliver Bearman,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OLIBEA01_Oliver_Bearman/olibea01.png.transform/1col/image.png
 2025,23,R,HUL,27,#00e700,Kick Sauber,Nico Hulkenberg,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/N/NICHUL01_Nico_Hulkenberg/nichul01.png.transform/1col/image.png
+2025,24,R,VER,1,#0600ef,Red Bull Racing,Max Verstappen,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/M/MAXVER01_Max_Verstappen/maxver01.png.transform/1col/image.png
+2025,24,R,PIA,81,#ff8000,McLaren,Oscar Piastri,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OSCPIA01_Oscar_Piastri/oscpia01.png.transform/1col/image.png
+2025,24,R,NOR,4,#ff8000,McLaren,Lando Norris,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANNOR01_Lando_Norris/lannor01.png.transform/1col/image.png
+2025,24,R,LEC,16,#e80020,Ferrari,Charles Leclerc,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CHALEC01_Charles_Leclerc/chalec01.png.transform/1col/image.png
+2025,24,R,RUS,63,#27f4d2,Mercedes,George Russell,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GEORUS01_George_Russell/georus01.png.transform/1col/image.png
+2025,24,R,ALO,14,#00665f,Aston Martin,Fernando Alonso,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/F/FERALO01_Fernando_Alonso/feralo01.png.transform/1col/image.png
+2025,24,R,OCO,31,#b6babd,Haas F1 Team,Esteban Ocon,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/E/ESTOCO01_Esteban_Ocon/estoco01.png.transform/1col/image.png
+2025,24,R,HAM,44,#e80020,Ferrari,Lewis Hamilton,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LEWHAM01_Lewis_Hamilton/lewham01.png.transform/1col/image.png
+2025,24,R,STR,18,#00665f,Aston Martin,Lance Stroll,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LANSTR01_Lance_Stroll/lanstr01.png.transform/1col/image.png
+2025,24,R,BEA,87,#b6babd,Haas F1 Team,Oliver Bearman,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/O/OLIBEA01_Oliver_Bearman/olibea01.png.transform/1col/image.png
+2025,24,R,HUL,27,#00e700,Kick Sauber,Nico Hulkenberg,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/N/NICHUL01_Nico_Hulkenberg/nichul01.png.transform/1col/image.png
+2025,24,R,BOR,5,#00e700,Kick Sauber,Gabriel Bortoleto,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/G/GABBOR01_Gabriel_Bortoleto/gabbor01.png.transform/1col/image.png
+2025,24,R,SAI,55,#00a0dd,Williams,Carlos Sainz,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/C/CARSAI01_Carlos_Sainz/carsai01.png.transform/1col/image.png
+2025,24,R,TSU,22,#0600ef,Red Bull Racing,Yuki Tsunoda,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/Y/YUKTSU01_Yuki_Tsunoda/yuktsu01.png.transform/1col/image.png
+2025,24,R,ANT,12,#27f4d2,Mercedes,Kimi Antonelli,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ANDANT01_Andrea%20Kimi_Antonelli/andant01.png.transform/1col/image.png
+2025,24,R,ALB,23,#00a0dd,Williams,Alexander Albon,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/A/ALEALB01_Alexander_Albon/alealb01.png.transform/1col/image.png
+2025,24,R,HAD,6,#fcd700,Racing Bulls,Isack Hadjar,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/I/ISAHAD01_Isack_Hadjar/isahad01.png.transform/1col/image.png
+2025,24,R,LAW,30,#fcd700,Racing Bulls,Liam Lawson,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/L/LIALAW01_Liam_Lawson/lialaw01.png.transform/1col/image.png
+2025,24,R,GAS,10,#ff87bc,Alpine,Pierre Gasly,https://media.formula1.com/d_driver_fallback_image.png/content/dam/fom-website/drivers/P/PIEGAS01_Pierre_Gasly/piegas01.png.transform/1col/image.png
+2025,24,R,COL,43,#ff87bc,Alpine,Franco Colapinto,None
