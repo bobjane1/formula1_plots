@@ -11,11 +11,13 @@ session.load()
 laps = session.laps
 drivers = laps['Driver'].unique()
 for driver in drivers:
-    if driver not in ["VER", "NOR", "PIA", "HAM", "SAI", "RUS", "ANT"]: continue
+    # if driver not in ["VER", "NOR", "PIA", "HAM", "LEC", "SAI", "RUS", "ANT"]: continue
+    # if driver != "BOR": continue
     driver_laps = laps.pick_drivers(driver)
     for li, lap in driver_laps.iterlaps():
+        if lap["Compound"] != "HARD": continue
         temp = lap.get_weather_data()["TrackTemp"]    
-        # if pd.isna(lap["LapTime"]) or lap["LapTime"].total_seconds() > 92: continue
+        if pd.isna(lap["LapTime"]) or lap["LapTime"].total_seconds() > 95: continue
         print(f"{driver}|{temp}|{lap['LapNumber']}|{lap['Compound']}|{lap['TyreLife']}|{lap['Sector1Time'].total_seconds()}|{lap['Sector2Time'].total_seconds()}|{lap['Sector3Time'].total_seconds()}|{lap['LapTime'].total_seconds()}")
     
     # stints = driver_laps[["Driver", "Stint", "Compound", "LapNumber"]]

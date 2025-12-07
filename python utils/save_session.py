@@ -142,7 +142,7 @@ def save_timing_data(races):
 
 
 my_f1_utils.setup_cache(offline=False)
-races = [(2025,23,"S")]
+races = [(2025,24,"R")]
 
 # all races to reconstruct everything
 # races = []

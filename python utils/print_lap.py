@@ -1,17 +1,17 @@
 import fastf1
 import my_f1_utils # cache
 
-session = fastf1.get_session(2024, 22, "R")
+session = fastf1.get_session(2025, 24, "Q")
 session.load()
-laps = session.laps.pick_drivers("RUS")
-lap = laps[laps["LapNumber"] == 5].iloc[0]
+laps = session.laps.pick_drivers("NOR")
+# lap = laps[laps["LapNumber"] == 5].iloc[0]
 # lap = laps[laps["LapNumber"] == 40]
 
 # session = fastf1.get_session(2024, 22, "Q")
 # session.load()
 # laps = session.laps.split_qualifying_sessions()[2]
-# driver_laps = laps.pick_drivers("RUS")
-# lap = driver_laps.pick_fastest()
+# laps = laps.pick_drivers("RUS")
+lap = laps.pick_fastest()
 
 sector_times = [
     lap["Sector1Time"].total_seconds(),
