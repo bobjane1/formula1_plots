@@ -11424,8 +11424,7 @@ setupTyreDegFilterModal();
 
         // Sample summary
         const tdSamples = document.createElement('td');
-        const tyreAgesUsed = group.tyreLifeAverages.length;
-        tdSamples.textContent = `Tyre ages: ${tyreAgesUsed}, Lap pairs: ${group.totalPairs}`;
+        tdSamples.textContent = `${group.totalPairs}`;
         tr.appendChild(tdSamples);
 
         // Click row to toggle selection
