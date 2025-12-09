@@ -10928,11 +10928,41 @@ setupTyreDegFilterModal();
 
     function renderFuelEffectScatterPlot(groups) {
       // Filter to only selected rows
-      const selectedGroups = groups.filter(([key, group]) => {
+      const selectedGroups = groups.filter(([key]) => {
         return appState.fuelEffect.selectedRows.has(key);
       });
 
-      if (selectedGroups.length === 0) {
+      // Prepare data by compound from selected lap pairs
+      const dataByCompound = new Map();
+
+      selectedGroups.forEach(([key, group]) => {
+        if (!group || !Array.isArray(group.pairs)) return;
+
+        group.pairs.forEach(pair => {
+          if (!Number.isFinite(pair.lapNumDiff) || pair.lapNumDiff <= 0) return;
+          if (!Number.isFinite(pair.lapTimeDiff)) return;
+
+          const compound = group.compound;
+          if (!dataByCompound.has(compound)) {
+            dataByCompound.set(compound, []);
+          }
+
+          dataByCompound.get(compound).push({
+            value: [pair.lapNumDiff, pair.lapTimeDiff],
+            driver: group.driver,
+            tyreLife: pair.tyreLife,
+            lap1Number: pair.lap1Number,
+            lap1Time: pair.lap1Time,
+            lap2Number: pair.lap2Number,
+            lap2Time: pair.lap2Time,
+            ratio: pair.ratio
+          });
+        });
+      });
+
+      const hasData = Array.from(dataByCompound.values()).some(arr => arr.length > 0);
+
+      if (selectedGroups.length === 0 || !hasData) {
         fuelEffectChartContainer.style.display = 'none';
         fuelEffectCoefficientsContainer.style.display = 'none';
         if (fuelEffectChart) {
@@ -10951,37 +10981,13 @@ setupTyreDegFilterModal();
         fuelEffectChart = echarts.init(fuelEffectChartContainer);
       }
 
-      // Prepare data by compound
-      const dataByCompound = new Map();
-
-      selectedGroups.forEach(([key, group]) => {
-        const compound = group.compound;
-        if (!dataByCompound.has(compound)) {
-          dataByCompound.set(compound, []);
-        }
-
-        // Calculate incremental differences
-        for (let i = 1; i < group.laps.length; i++) {
-          const lapNumDiff = group.laps[i].lapNumber - group.laps[i - 1].lapNumber;
-          const lapTimeDiff = group.laps[i].lapTime - group.laps[i - 1].lapTime;
-
-          dataByCompound.get(compound).push({
-            value: [lapNumDiff, lapTimeDiff],
-            driver: group.driver,
-            tyreLife: group.tyreLife,
-            lap1Number: group.laps[i - 1].lapNumber,
-            lap1Time: group.laps[i - 1].lapTime,
-            lap2Number: group.laps[i].lapNumber,
-            lap2Time: group.laps[i].lapTime
-          });
-        }
-      });
-
       // Calculate linear regression (zero intercept) and create series
       const series = [];
       const coefficients = new Map();
 
       dataByCompound.forEach((data, compound) => {
+        if (!data.length) return;
+
         const color = getF1TireColor(compound);
 
         // Add scatter series
@@ -11024,6 +11030,10 @@ setupTyreDegFilterModal();
         const xValues = data.map(point => point.value[0]);
         const minX = Math.min(...xValues);
         const maxX = Math.max(...xValues);
+
+        if (!Number.isFinite(minX) || !Number.isFinite(maxX)) {
+          return;
+        }
 
         // Create line data
         const lineData = [
@@ -11078,7 +11088,8 @@ setupTyreDegFilterModal();
               Lap ${data.lap2Number}: ${data.lap2Time.toFixed(3)}s<br/>
               <br/>
               Lap # Diff: ${data.value[0]}<br/>
-              Lap Time Diff: ${data.value[1].toFixed(3)}s
+              Lap Time Diff: ${data.value[1].toFixed(3)}s<br/>
+              Diff per Lap: ${data.ratio.toFixed(6)}s/lap
             `;
           }
         },
@@ -11178,56 +11189,123 @@ setupTyreDegFilterModal();
         return;
       }
 
-      // Group by driver, compound, and tyre life
-      const groups = new Map();
+      // Buckets keyed by driver/compound/tyre life
+      const buckets = new Map();
 
       rows.forEach(r => {
         const driver = String(r.lap_Driver || "").trim();
         const compound = String(r.lap_Compound || "").trim();
-        const tyreLife = String(r.lap_TyreLife || "").trim();
-        const lapNumber = String(r.lap_LapNumber || "").trim();
+        const tyreLife = parseInt(r.lap_TyreLife, 10);
+        const lapNumber = parseInt(r.lap_LapNumber, 10);
         const lapTime = parseFloat(r.lap_LapTime);
 
-        if (!driver || !compound || !tyreLife || !lapNumber || isNaN(lapTime)) {
+        if (!driver || !compound || Number.isNaN(tyreLife) || Number.isNaN(lapNumber) || Number.isNaN(lapTime)) {
           return; // Skip invalid rows
         }
 
         const key = `${driver}||${compound}||${tyreLife}`;
 
-        if (!groups.has(key)) {
-          groups.set(key, {
+        if (!buckets.has(key)) {
+          buckets.set(key, {
             driver: driver,
             compound: compound,
-            tyreLife: parseInt(tyreLife),
+            tyreLife: tyreLife,
             laps: []
           });
         }
 
-        groups.get(key).laps.push({
-          lapNumber: parseInt(lapNumber),
+        buckets.get(key).laps.push({
+          lapNumber: lapNumber,
           lapTime: lapTime
         });
       });
 
-      // Filter out groups with only one lap
-      const filteredGroups = Array.from(groups.entries()).filter(([key, group]) => {
-        return group.laps.length > 1;
+      // Aggregate lap pairs by driver + compound, averaging ratios across tyre ages
+      const aggregated = new Map();
+
+      buckets.forEach(bucket => {
+        // Enforce monotonic order
+        bucket.laps.sort((a, b) => a.lapNumber - b.lapNumber);
+        if (bucket.laps.length < 2) return;
+
+        const pairs = [];
+        for (let i = 1; i < bucket.laps.length; i++) {
+          const prev = bucket.laps[i - 1];
+          const curr = bucket.laps[i];
+          const lapNumDiff = curr.lapNumber - prev.lapNumber;
+          if (!Number.isFinite(lapNumDiff) || lapNumDiff <= 0) continue; // Skip non-incremental laps
+          const lapTimeDiff = curr.lapTime - prev.lapTime;
+          if (!Number.isFinite(lapTimeDiff)) continue;
+
+          pairs.push({
+            tyreLife: bucket.tyreLife,
+            lapNumDiff,
+            lapTimeDiff,
+            ratio: lapTimeDiff / lapNumDiff,
+            lap1Number: prev.lapNumber,
+            lap1Time: prev.lapTime,
+            lap2Number: curr.lapNumber,
+            lap2Time: curr.lapTime
+          });
+        }
+
+        if (!pairs.length) return; // Skip single-lap buckets
+
+        const bucketAverage = pairs.reduce((sum, p) => sum + p.ratio, 0) / pairs.length;
+        const aggKey = `${bucket.driver}||${bucket.compound}`;
+
+        if (!aggregated.has(aggKey)) {
+          aggregated.set(aggKey, {
+            driver: bucket.driver,
+            compound: bucket.compound,
+            pairs: [],
+            tyreLifeAverages: []
+          });
+        }
+
+        const agg = aggregated.get(aggKey);
+        agg.pairs.push(...pairs);
+        agg.tyreLifeAverages.push({
+          tyreLife: bucket.tyreLife,
+          meanRatio: bucketAverage,
+          pairCount: pairs.length
+        });
       });
 
-      // Sort groups by compound, driver, tyre life
-      const sortedGroups = filteredGroups.sort((a, b) => {
-        const [keyA, groupA] = a;
-        const [keyB, groupB] = b;
+      const aggregatedEntries = Array.from(aggregated.entries()).map(([key, group]) => {
+        const averageRatio = group.tyreLifeAverages.length
+          ? group.tyreLifeAverages.reduce((sum, t) => sum + t.meanRatio, 0) / group.tyreLifeAverages.length
+          : NaN;
+        return [key, {
+          ...group,
+          averageRatio,
+          totalPairs: group.pairs.length
+        }];
+      }).filter(([key, group]) => group.totalPairs > 0 && Number.isFinite(group.averageRatio));
+
+      if (!aggregatedEntries.length) {
+        fuelEffectPreviousFilteredKeys = []; // nothing visible now
+        fuelEffectGroupsTableContainer.innerHTML = "";
+        fuelEffectChartContainer.style.display = 'none';
+        fuelEffectCoefficientsContainer.style.display = 'none';
+        if (fuelEffectChart) {
+          fuelEffectChart.dispose();
+          fuelEffectChart = null;
+        }
+        fuelEffectFilteredGroups.clear();
+        return;
+      }
+
+      // Sort groups by compound, driver
+      const sortedGroups = aggregatedEntries.sort((a, b) => {
+        const [, groupA] = a;
+        const [, groupB] = b;
 
         if (groupA.compound !== groupB.compound) {
           return groupA.compound.localeCompare(groupB.compound);
         }
 
-        if (groupA.driver !== groupB.driver) {
-          return groupA.driver.localeCompare(groupB.driver);
-        }
-
-        return groupA.tyreLife - groupB.tyreLife;
+        return groupA.driver.localeCompare(groupB.driver);
       });
 
       // Detect and auto-select newly visible rows (only on filter changes, not initial load)
@@ -11281,8 +11359,8 @@ setupTyreDegFilterModal();
         { text: 'Select', isCheckbox: true },
         { text: 'Driver', clickable: true, column: 'driver' },
         { text: 'Compound', clickable: true, column: 'compound' },
-        { text: 'Tyre Life' },
-        { text: 'Laps (Lap Number: Lap Time)' }
+        { text: 'Fuel Effect (s/lap)' },
+        { text: 'Samples' }
       ];
 
       headers.forEach(header => {
@@ -11338,20 +11416,17 @@ setupTyreDegFilterModal();
         tdCompound.style.fontWeight = '600';
         tr.appendChild(tdCompound);
 
-        // Tyre Life
-        const tdTyreLife = document.createElement('td');
-        tdTyreLife.textContent = group.tyreLife;
-        tr.appendChild(tdTyreLife);
+        // Fuel effect estimate
+        const tdEffect = document.createElement('td');
+        tdEffect.textContent = Number.isFinite(group.averageRatio) ? group.averageRatio.toFixed(3) : '—';
+        tdEffect.style.fontWeight = '600';
+        tr.appendChild(tdEffect);
 
-        // Laps
-        const tdLaps = document.createElement('td');
-        // Sort laps by lap number
-        group.laps.sort((a, b) => a.lapNumber - b.lapNumber);
-        const lapsText = group.laps.map(lap =>
-          `${lap.lapNumber}: ${lap.lapTime.toFixed(3)}s`
-        ).join(', ');
-        tdLaps.textContent = lapsText;
-        tr.appendChild(tdLaps);
+        // Sample summary
+        const tdSamples = document.createElement('td');
+        const tyreAgesUsed = group.tyreLifeAverages.length;
+        tdSamples.textContent = `Tyre ages: ${tyreAgesUsed}, Lap pairs: ${group.totalPairs}`;
+        tr.appendChild(tdSamples);
 
         // Click row to toggle selection
         tr.style.cursor = 'pointer';
