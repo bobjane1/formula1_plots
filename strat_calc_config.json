@@ -30,5 +30,16 @@
         "Mediums": {"Pace": 81.98, "Deg": 0.04},
         "Hards": {"Pace": 82.94, "Deg": 0.034},
         "Strategies Of Interest": [["M,H", "H,M", "M,H,H", "H,M,H", "M,H,S"]]
+    },
+
+    "Yas Marina Circuit": {
+        "Num Laps": 58,
+        "Pit Loss": 22.5,
+        "SC Length": 5,
+        "Fuel Effect": 0.062,
+        "Hards": {"Pace": 87.8, "Deg": 0.054},
+        "Mediums": {"Pace": 87.089, "Deg": 0.124},
+        "Softs": {"Pace": 86.998, "Deg": 0.155},
+        "Strategies Of Interest": [["M,H", "H,M", "M,H,H", "M,H,M", "S,H,M"]]
     }
 }
