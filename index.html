@@ -3182,6 +3182,7 @@
     let replayConfig = {
       enabled: false
     };
+    let replayLapTimeAdjustments = null; // Preserve lap time toggles while replay mode is active
 
     // Animation state for replay playback
     let isPlaying = false;
@@ -3240,6 +3241,26 @@
       replayTimeline = [];
       timingInProgressLaps.clear();
       previousFilteredDataLength = 0;
+    }
+
+    function applyReplayLapTimeDefaults() {
+      if (!replayLapTimeAdjustments) {
+        replayLapTimeAdjustments = {
+          fuelAdjust: appState.lapTime.fuelAdjust,
+          tyreLifeAdjust: appState.lapTime.tyreLifeAdjust
+        };
+      }
+      appState.lapTime.fuelAdjust = false;
+      appState.lapTime.tyreLifeAdjust = false;
+      renderLapTimeToggleInputsFromState();
+    }
+
+    function restoreLapTimeAdjustmentsFromReplay() {
+      if (!replayLapTimeAdjustments) return;
+      appState.lapTime.fuelAdjust = replayLapTimeAdjustments.fuelAdjust;
+      appState.lapTime.tyreLifeAdjust = replayLapTimeAdjustments.tyreLifeAdjust;
+      replayLapTimeAdjustments = null;
+      renderLapTimeToggleInputsFromState();
     }
 
     // Build cumulative timing segments per driver/lap for gap comparisons
@@ -4259,6 +4280,7 @@
       appState.filters.includeRetired = true;
       appState.tyreDeg.filterMinRows = 0;
       appState.tyreDeg.filterMinCorr = -1.0;
+      applyReplayLapTimeDefaults();
 
       // Populate seasons dropdown first
       UIHelpers.populateSeasons(seasonSel, sessionsByKey, {});
@@ -4322,6 +4344,8 @@
       appState.filters.includeLapped = true;
       appState.filters.includeRetired = true;
 
+      restoreLapTimeAdjustmentsFromReplay();
+
       // Re-initialize current panel with unfiltered data and default filters
       if (currentSessionData && currentSessionData.length >= 0) {
         initializePanel(appState.currentActiveTab, currentSessionData);
@@ -4362,6 +4386,8 @@
         appState.filters.includeLapped = true;
         appState.filters.includeRetired = true;
 
+        restoreLapTimeAdjustmentsFromReplay();
+
         // Re-initialize current panel with unfiltered data and default filters
         if (currentSessionData && currentSessionData.length >= 0) {
           initializePanel(appState.currentActiveTab, currentSessionData);
@@ -4401,6 +4427,8 @@
         appState.filters.pitLaps = false;
         appState.filters.includeLapped = true;
         appState.filters.includeRetired = true;
+
+        restoreLapTimeAdjustmentsFromReplay();
 
         // Re-initialize current panel with unfiltered data and default filters
         if (currentSessionData && currentSessionData.length >= 0) {
